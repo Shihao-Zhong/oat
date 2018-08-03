@@ -167,7 +167,9 @@ let part4_tests : suite = [
   ]);
  
   GradedTest ("Problem5", 5, [
-  
+     ("compile1", assert_eqf (fun () -> run [] (compile e1)) 6L);
+     ("compile2", assert_eqf (fun () -> run ctxt1 (compile e2)) 4L);
+     ("compile3", assert_eqf (fun () -> run ctxt2 (compile e3)) (Int64.neg 63L));
   ]);
 ]
 

@@ -321,11 +321,11 @@ let quadrupled_z_again : int = twice double z  (* pass double to twice *)
   makes the first case of part1_tests "Problem 1" succeed. See the 
   gradedtests.ml file.  
 *)   
-let pieces : int = -1
+let pieces : int = 8
 
 (* Implement a function cube that takes an int value and produces its cube. *)
 let cube : int -> int = 
-fun _ -> failwith "cube unimplemented"   
+  fun x -> x * x * x
 
 
 (* Problem 1-2 *)
@@ -339,7 +339,7 @@ fun _ -> failwith "cube unimplemented"
   and computes the total value of the coins in cents: 
 *)
 let cents_of : int -> int -> int -> int -> int = 
-  fun _ -> failwith "cents_of unimplemented"
+  fun q d n p -> (q * 25) + (d * 10) + (n * 5) + (p * 1)
 
 
 (* Problem 1-3 *)
@@ -495,7 +495,10 @@ let pair_up (x:'a) : ('a * 'a) = (x, x)
   Complete the definition of third_of_three; be sure to give it 
   the correct type signature (we will grade that part manually):
 *)
-let third_of_three _ = failwith "third_of_three unimplemented"
+let third_of_three (t:'a * 'b * 'c) : 'c =
+  begin match t with
+    | (_, _, x) -> x
+  end
 
 
 (*
@@ -508,7 +511,9 @@ let third_of_three _ = failwith "third_of_three unimplemented"
 *)
 
 let compose_pair (p:(('b -> 'c) * ('a -> 'b))) : 'a -> 'c =
-failwith "compose_pair unimplemented"
+  begin match p with
+  | (g, f) -> fun x -> g (f x)
+  end
 
 
 
@@ -682,7 +687,10 @@ let rec mylist_to_list (l:'a mylist) : 'a list =
   the inverse of the mylist_to_list function given above.
 *)
 let rec list_to_mylist (l:'a list) : 'a mylist =
-failwith "list_to_mylist unimplemented"
+  begin match l with
+  | [] -> Nil
+  | h::tl -> Cons(h, (list_to_mylist tl))
+  end
 
 
 (*
@@ -699,7 +707,10 @@ failwith "list_to_mylist unimplemented"
   append.  So (List.append [1;2] [3]) is the same as  ([1;2] @ [3]).
 *) 
 let rec append (l1:'a list) (l2:'a list) : 'a list =
-failwith "append unimplemented"
+  begin match l1 with
+  | [] -> l2
+  | h::tl -> h :: (append tl l2)
+  end
   
 (*
   Problem 3-3
@@ -708,7 +719,10 @@ failwith "append unimplemented"
   you might want to call append.  Do not use the library function.
 *)
 let rec rev (l:'a list) : 'a list =
-failwith "rev unimplemented"
+  begin match l with
+  | [] -> []
+  | h::tl -> (append (rev(tl)) [h])
+  end
 
 (*
   Problem 3-4
@@ -720,7 +734,11 @@ failwith "rev unimplemented"
   OCaml will compile a tail recursive function to a simple loop.
 *)
 let rev_t (l: 'a list) : 'a list =
-failwith "rev_t unimplemented"
+  let rec rev_local accum = function
+    | h :: t -> rev_local (h :: accum) t
+    | [] -> accum
+  in
+  rev_local [] l
 
 
 (*
@@ -737,7 +755,17 @@ failwith "rev_t unimplemented"
   evaluates to true or false.
 *)
 let rec insert (x:'a) (l:'a list) : 'a list =
-failwith "insert unimplemented"
+  if List.mem x l then
+    l
+  else
+    begin match l with
+    | [] -> x :: []
+    | h :: t ->
+       if x > h then
+         h :: (insert x t)
+       else
+         x :: l
+    end
   
   
 (*
@@ -748,7 +776,20 @@ failwith "insert unimplemented"
   Hint: you might want to use the insert function that you just defined.
 *)
 let rec union (l1:'a list) (l2:'a list) : 'a list =
- failwith "union unimplemented"
+  begin match l1 with
+  | [] -> l2
+  | h1 :: t1 ->
+     begin match l2 with
+     | [] -> l1
+     | h2 :: t2 ->
+        if h1 = h2 then
+          h1 :: (union t1 t2)
+        else if h1 > h2 then
+          h2 :: (union (h1 :: t1) t2)
+        else
+          h1 :: (union t1 (h2 :: t2))
+     end
+  end
 
 
             
@@ -821,7 +862,7 @@ let e2 : exp = Add(Var "x", Const 1L)    (* "x + 1" *)
 (* Here is a more complex expression that involves multiple variables: *)
 
 let e3 : exp = Mult(Var "y", Mult(e2, Neg e2))     (* "y * ((x+1) * -(x+1))" *)
-
+             
 (*
    Problem 4-1
  
@@ -839,8 +880,13 @@ let e3 : exp = Mult(Var "y", Mult(e2, Neg e2))     (* "y * ((x+1) * -(x+1))" *)
   Hint: you probably want to use the 'union' function you wrote for Problem 3-5.
 *)
 let rec vars_of (e:exp) : string list =
-failwith "vars_of unimplemented"
-
+  begin match e with
+  | Var v -> [v]
+  | Const _ -> []
+  | Add (left, right) -> (union (vars_of(left)) (vars_of(right)))
+  | Mult (left, right) -> (union (vars_of(left)) (vars_of(right)))
+  | Neg (e) -> vars_of(e)
+  end
 
 (*
   How should we _interpret_ (i.e. give meaning to) an expression?
@@ -901,7 +947,17 @@ let ctxt2 : ctxt = [("x", 2L); ("y", 7L)]  (* maps "x" to 2L, "y" to 7L *)
   such value, it should raise the Not_found exception.
 *)
 let rec lookup (x:string) (c:ctxt) : int64 =
-failwith "unimplemented"
+  begin match c with
+  | [] ->
+     raise Not_found
+  | (s, i) :: t ->
+     if s = x then
+       i
+     else
+       lookup x t
+  end
+     
+       
 
 
 (* 
@@ -928,7 +984,13 @@ failwith "unimplemented"
 *)        
 
 let rec interpret (c:ctxt) (e:exp) : int64 =
-  failwith "unimplemented"
+  begin match e with
+  | Var v -> lookup v c
+  | Const c -> c
+  | Add (left, right) -> Int64.add (interpret c left) (interpret c right)
+  | Mult (left, right) -> Int64.mul (interpret c left) (interpret c right)
+  | Neg (e) -> Int64.neg (interpret c e)
+  end
 
 
 (*
@@ -974,7 +1036,38 @@ let rec interpret (c:ctxt) (e:exp) : int64 =
 *)   
 
 let rec optimize (e:exp) : exp =
-failwith "optimize unimplemented"  
+  begin match e with
+  | Var v -> e
+  | Const c -> e
+  | Add (left, right) ->
+     begin match (optimize left) with
+     | Const c1 ->
+        begin match (optimize right) with
+        | Const c2 ->
+           Const (Int64.add c1 c2)
+        | _ -> e
+        end
+     | _ -> e
+     end
+  | Mult (left, right) ->
+     begin match (optimize left) with
+     | Const c1 ->
+        if c1 = 0L then
+          Const 0L
+        else
+          begin match (optimize right) with
+          | Const c2 ->
+             if c2 = 0L then
+               Const 0L
+             else
+               Const (Int64.mul c1 c2)
+          | _ -> e
+          end
+     | _ -> e
+     end
+  | Neg (e) ->
+     e
+  end
   
 
 (******************************************************************************)
@@ -1118,8 +1211,13 @@ let ans1 = run [] p1
    - You should test the correctness of your compiler on several examples.
 *)
 let rec compile (e:exp) : program =
-failwith "compile unimplemented"  
-
+  begin match e with
+  | Var v -> [(IPushV v)]
+  | Const c -> [(IPushC c)]
+  | Add (left, right) -> (append (append (compile left) (compile right)) [IAdd])
+  | Mult (left, right) -> (append (append (compile left) (compile right)) [IMul])
+  | Neg (e) -> (append (compile e) [INeg])
+  end
 
 
 (************)
