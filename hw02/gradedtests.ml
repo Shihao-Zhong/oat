@@ -516,7 +516,7 @@ let manual_tests : suite = [
   GradedTest ("PartIIITestCase (manual)", 10, [
   
   ]);
-  GradedTest ("Other Team Tests (manual)", 10, Sp18_tests.tests);
+  (* GradedTest ("Other Team Tests (manual)", 10, Sp18_tests.tests); *)
   GradedTest ("Style (manual)", 5, [
   
   ]);
