@@ -141,10 +141,10 @@ let interp_cnd {fo; fs; fz} : cnd -> bool = fun x ->
   match x with
   | Eq -> fz
   | Neq -> not fz
-  | Gt 
-  | Ge
-  | Lt
-  | Le -> (fo != fs) || fz 
+  | Gt -> not ((fo != fs) || fz )
+  | Ge -> not (fs != fo)
+  | Lt -> fs != fo
+  | Le -> (fo != fs) || fz
 
 
 
