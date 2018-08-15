@@ -195,7 +195,10 @@ let step (m:mach) : unit =
                   Int64.neg(quad) |> ignore
              | Lbl(_) -> () (* TODO: Possibly fail here *)
              end
-          | Reg reg -> ()
+          | Reg reg -> (
+            let dest = (Array.get  m.regs (rind reg)) in
+            Array.set m.regs (rind reg) (Int64.neg dest)
+          )
           | Ind1 imm -> ()
           | Ind2 reg -> ()
           | Ind3 (imm, reg) -> ()
