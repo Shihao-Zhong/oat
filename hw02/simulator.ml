@@ -186,7 +186,15 @@ let step (m:mach) : unit =
         match operands with
         | dest::[] ->
           begin match dest with
-          | Imm imm -> ()
+          | Imm imm ->
+             begin match imm with
+             | Lit(quad) ->
+                if quad = Int64.min_int then
+                  m.flags.fo <- true
+                else
+                  Int64.neg(quad) |> ignore
+             | Lbl(_) -> () (* TODO: Possibly fail here *)
+             end
           | Reg reg -> ()
           | Ind1 imm -> ()
           | Ind2 reg -> ()
