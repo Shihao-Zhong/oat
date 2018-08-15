@@ -165,7 +165,16 @@ let map_addr (addr:quad) : int option =
     - set the condition flags
 *)
 let step (m:mach) : unit =
-failwith "step unimplemented"
+  let rip = (Array.get  m.regs (rind Rip)) in
+  let opt_addr = (map_addr rip) in
+  match opt_addr with
+  | None -> ()
+  | Some(addr) -> (
+    let ins = (Array.get m.mem addr) in
+    match ins with
+    | _ -> ()
+  )
+
 
 (* Runs the machine until the rip register reaches a designated
    memory address. *)
