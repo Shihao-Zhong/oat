@@ -164,6 +164,10 @@ let map_addr (addr:quad) : int option =
     - update the registers and/or memory appropriately
     - set the condition flags
 *)
+exception UnresolvedLabel
+exception OperandError
+exception OutOfBounds
+
 let step (m:mach) : unit =
   let rip = (Array.get  m.regs (rind Rip)) in
   let opt_addr = (map_addr rip) in
@@ -193,17 +197,27 @@ let step (m:mach) : unit =
                   m.flags.fo <- true
                 else
                   Int64.neg(quad) |> ignore
-             | Lbl(_) -> () (* TODO: Possibly fail here *)
+             | Lbl(_) -> raise UnresolvedLabel
              end
           | Reg reg -> (
             let dest = (Array.get  m.regs (rind reg)) in
             Array.set m.regs (rind reg) (Int64.neg dest)
           )
           | Ind1 imm -> ()
-          | Ind2 reg -> ()
+          | Ind2 reg -> (
+            let indirect_dest = (Array.get  m.regs (rind reg)) in
+            let dest_start_index = match (map_addr indirect_dest) with
+              | None -> raise OutOfBounds
+              | Some(index) -> index
+            in
+            let dest_sbytes = (Array.sub m.mem dest_start_index 8) in
+            let dest = (int64_of_sbytes (Array.to_list dest_sbytes)) in
+            let neg_sbytes = (sbytes_of_int64 (Int64.neg dest)) in
+            List.iteri (fun ind sb -> (Array.set m.mem (dest_start_index + ind) sb)) neg_sbytes
+          )
           | Ind3 (imm, reg) -> ()
           end
-        | _ -> ()
+        | _ -> raise OperandError
       )
       | Notq
       | Addq
