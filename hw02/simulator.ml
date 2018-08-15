@@ -200,8 +200,11 @@ let step (m:mach) : unit =
              | Lbl(_) -> raise UnresolvedLabel
              end
           | Reg reg -> (
-            let dest = (Array.get  m.regs (rind reg)) in
-            Array.set m.regs (rind reg) (Int64.neg dest)
+            let quad = (Array.get  m.regs (rind reg)) in
+            if quad = Int64.min_int then
+              m.flags.fo <- true
+            else
+              Array.set m.regs (rind reg) (Int64.neg quad)
           )
           | Ind1 imm -> ()
           | Ind2 reg -> (
@@ -211,9 +214,12 @@ let step (m:mach) : unit =
               | Some(index) -> index
             in
             let dest_sbytes = (Array.sub m.mem dest_start_index 8) in
-            let dest = (int64_of_sbytes (Array.to_list dest_sbytes)) in
-            let neg_sbytes = (sbytes_of_int64 (Int64.neg dest)) in
-            List.iteri (fun ind sb -> (Array.set m.mem (dest_start_index + ind) sb)) neg_sbytes
+            let quad = (int64_of_sbytes (Array.to_list dest_sbytes)) in
+            if quad = Int64.min_int then
+              m.flags.fo <- true
+            else 
+              let neg_sbytes = (sbytes_of_int64 (Int64.neg quad)) in
+              List.iteri (fun ind sb -> (Array.set m.mem (dest_start_index + ind) sb)) neg_sbytes
           )
           | Ind3 (imm, reg) -> ()
           end
