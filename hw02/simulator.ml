@@ -168,11 +168,16 @@ let step (m:mach) : unit =
   let rip = (Array.get  m.regs (rind Rip)) in
   let opt_addr = (map_addr rip) in
   match opt_addr with
-  | None -> ()
+  | None -> () (* TODO: Check termination condition *)
   | Some(addr) -> (
-    let ins = (Array.get m.mem addr) in
-    match ins with
+    let instructionOpt = (Array.get m.mem addr) in
+    match instructionOpt with
+    | InsFrag -> ()
+    | Byte _ -> ()
+    | InsB0 (opcode, operands) ->
+    begin match (opcode, operands) with
     | _ -> ()
+    end |> ignore
   )
 
 
