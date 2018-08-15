@@ -175,9 +175,41 @@ let step (m:mach) : unit =
     | InsFrag -> ()
     | Byte _ -> ()
     | InsB0 (opcode, operands) ->
-    begin match (opcode, operands) with
-    | _ -> ()
-    end |> ignore
+      match opcode with
+      | Movq
+      | Pushq
+      | Popq
+      | Leaq
+      | Incq
+      | Decq
+      | Negq -> (
+        match operands with
+        | dest::[] ->
+          begin match dest with
+          | Imm imm -> ()
+          | Reg reg -> ()
+          | Ind1 imm -> ()
+          | Ind2 reg -> ()
+          | Ind3 (imm, reg) -> ()
+          end
+        | _ -> ()
+      )
+      | Notq
+      | Addq
+      | Subq
+      | Imulq
+      | Xorq
+      | Orq
+      | Andq
+      | Shlq
+      | Sarq
+      | Shrq
+      | Jmp
+      | J(_)
+      | Cmpq
+      | Set(_)
+      | Callq
+      | Retq -> ()
   )
 
 
