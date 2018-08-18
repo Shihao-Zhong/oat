@@ -250,49 +250,27 @@ let step (m:mach) : unit =
     | Byte _ -> ()
     | InsB0 (opcode, operands) ->
       match opcode with
+      | Negq -> (
+        match operands with
+        | dest::[] -> (
+          let data_sbytes = read m dest in
+          let data_int64 = int64_of_sbytes data_sbytes in
+          if data_int64 = Int64.min_int
+          then
+            m.flags.fo <- true
+          else
+            let negated_val = Int64.neg data_int64 in
+            let result_sbytes = sbytes_of_int64 negated_val in
+            write m dest result_sbytes
+        )
+        | _ -> raise OperandError
+      )
       | Movq
       | Pushq
       | Popq
       | Leaq
       | Incq
       | Decq
-      | Negq -> (
-        match operands with
-        | dest::[] ->
-          begin match dest with
-          | Imm imm ->
-             begin match imm with
-             | Lit(quad) ->
-                if quad = Int64.min_int then
-                  m.flags.fo <- true
-                else
-                  Int64.neg(quad) |> ignore
-             | Lbl(_) -> raise UnresolvedLabel
-             end
-          | Reg reg -> (
-            let quad = (reg_val m reg) in
-            if quad = Int64.min_int then
-              m.flags.fo <- true
-            else
-              Array.set m.regs (rind reg) (Int64.neg quad)
-          )
-          | Ind1 imm -> ()
-          | Ind2 reg -> (
-            let dest_addr = reg_val m reg in
-            let start_index = addr_start_index dest_addr in
-            let dest_sbytes = read_8_bytes_from_mem m start_index in
-            let quad = int64_of_sbytes dest_sbytes in
-            if quad = Int64.min_int then
-              m.flags.fo <- true
-            else 
-              let neg_sbytes = sbytes_of_int64 (Int64.neg quad) in
-              let dest_index = addr_start_index dest_addr in
-              write_8_bytes_to_mem m dest_index neg_sbytes
-          )
-          | Ind3 (imm, reg) -> ()
-          end
-        | _ -> raise OperandError
-      )
       | Notq
       | Addq
       | Subq
