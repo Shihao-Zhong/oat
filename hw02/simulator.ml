@@ -227,7 +227,23 @@ let write = fun m addr data ->
     let start_index = index + Int64.to_int offset in
     write_8_bytes_to_mem m start_index data
   )
+
+let update_flags = fun m res ->
+  match (Int64.compare res Int64.zero) with
+  | 0 -> m.flags.fz <- true
+  | -1 -> m.flags.fs <- true
+  | 1 -> ()
+  | _ -> failwith "unexpected resutl" 
   
+
+let twos_compliment = fun x ->
+  if x = Int64.zero then
+    (Int64.zero, true)
+  else
+    let (+) = Int64.add in
+    let (^) = Int64.logxor in
+    let complement = Int64.neg ((x ^ Int64.max_int) + Int64.one) in
+    (complement, false)
 
 (* Simulates one step of the machine:
     - fetch the instruction at %rip
@@ -255,17 +271,26 @@ let step (m:mach) : unit =
         | dest::[] -> (
           let data_sbytes = read m dest in
           let data_int64 = int64_of_sbytes data_sbytes in
-          if data_int64 = Int64.min_int
-          then
-            m.flags.fo <- true
-          else
-            let negated_val = Int64.neg data_int64 in
-            let result_sbytes = sbytes_of_int64 negated_val in
+          let (complement, overflow) = twos_compliment data_int64 in
+          begin
+            match overflow with
+            | true -> m.flags.fo <- true
+            | false -> ();
+            update_flags m complement;
+            let result_sbytes = sbytes_of_int64 complement in
             write m dest result_sbytes
+          end
         )
         | _ -> raise OperandError
       )
-      | Movq
+      | Movq -> (
+        match operands with
+        | src::dest::[] -> (
+          let data = read m src in
+          write m dest data
+        )
+        | _ -> raise OperandError
+      )
       | Pushq
       | Popq
       | Leaq
