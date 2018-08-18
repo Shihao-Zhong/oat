@@ -161,10 +161,39 @@ let addr_start_index (addr: int64): int =
   | None -> raise OutOfBounds
   | Some(index) -> index
 
-let read_val (m: mach) (ind_addr: int64): sbyte list =
-  let start_index = addr_start_index ind_addr in
+let read_8_bytes_from_mem (m: mach) (start_index: int): sbyte list =
   let sbytes_array = Array.sub m.mem start_index 8 in
   Array.to_list sbytes_array
+
+exception UnresolvedLabel
+let read = fun m addr ->
+  match addr with
+  | Imm Lbl _ -> raise UnresolvedLabel
+  | Imm Lit quad -> sbytes_of_int64 quad
+  | Reg reg -> (
+    let reg_val = reg_val m reg in
+    sbytes_of_int64 reg_val
+  )
+  | Ind1 Lbl _ -> raise UnresolvedLabel
+  | Ind1 Lit ind_addr -> (
+    let start_index = addr_start_index ind_addr in
+    let addr_sbytes = read_8_bytes_from_mem m start_index in
+    let addr = int64_of_sbytes addr_sbytes in
+    let start_index = addr_start_index addr in
+    read_8_bytes_from_mem m start_index
+  )
+  | Ind2 reg -> (
+    let reg_val = reg_val m reg in
+    let start_index = addr_start_index reg_val in
+    read_8_bytes_from_mem m start_index
+  )
+  | Ind3 (Lbl _, reg) -> raise UnresolvedLabel
+  | Ind3 (Lit offset, reg) -> (
+    let reg_val = reg_val m reg in
+    let index = addr_start_index reg_val in
+    let start_index = index + Int64.to_int offset in
+    read_8_bytes_from_mem m start_index
+  )
 
 let write_sbytes (m: mach) (addr: int64) (sbytes: sbyte list): unit =
   let start_index = addr_start_index addr in
@@ -178,7 +207,6 @@ let write_sbytes (m: mach) (addr: int64) (sbytes: sbyte list): unit =
     - update the registers and/or memory appropriately
     - set the condition flags
 *)
-exception UnresolvedLabel
 exception OperandError
 
 let step (m:mach) : unit =
@@ -222,7 +250,8 @@ let step (m:mach) : unit =
           | Ind1 imm -> ()
           | Ind2 reg -> (
             let dest_addr = reg_val m reg in
-            let dest_sbytes = read_val m dest_addr in
+            let start_index = addr_start_index dest_addr in
+            let dest_sbytes = read_8_bytes_from_mem m start_index in
             let quad = int64_of_sbytes dest_sbytes in
             if quad = Int64.min_int then
               m.flags.fo <- true
