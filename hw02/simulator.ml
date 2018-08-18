@@ -195,10 +195,39 @@ let read = fun m addr ->
     read_8_bytes_from_mem m start_index
   )
 
-let write_sbytes (m: mach) (addr: int64) (sbytes: sbyte list): unit =
-  let start_index = addr_start_index addr in
+let write_8_bytes_to_mem = fun m start_index sbytes ->
   let aux = fun ind sb -> Array.set m.mem (start_index + ind) sb in
   List.iteri aux sbytes
+
+let write = fun m addr data ->
+  match addr with
+  | Imm Lbl _ -> raise UnresolvedLabel
+  | Imm Lit _ -> ()
+  | Reg reg -> (
+    let data_int64 = int64_of_sbytes data in
+    Array.set m.regs (rind reg) data_int64
+  )
+  | Ind1 Lbl _ -> raise UnresolvedLabel
+  | Ind1 Lit ind_addr -> (
+    let start_index = addr_start_index ind_addr in
+    let addr_sbytes = read_8_bytes_from_mem m start_index in
+    let addr = int64_of_sbytes addr_sbytes in
+    let start_index = addr_start_index addr in
+    write_8_bytes_to_mem m start_index data
+  )
+  | Ind2 reg -> (
+    let reg_val = reg_val m reg in
+    let start_index = addr_start_index reg_val in
+    write_8_bytes_to_mem m start_index data
+  )
+  | Ind3 (Lbl _, reg) -> raise UnresolvedLabel
+  | Ind3 (Lit offset, reg) -> (
+    let reg_val = reg_val m reg in
+    let index = addr_start_index reg_val in
+    let start_index = index + Int64.to_int offset in
+    write_8_bytes_to_mem m start_index data
+  )
+  
 
 (* Simulates one step of the machine:
     - fetch the instruction at %rip
@@ -257,7 +286,8 @@ let step (m:mach) : unit =
               m.flags.fo <- true
             else 
               let neg_sbytes = sbytes_of_int64 (Int64.neg quad) in
-              write_sbytes m dest_addr neg_sbytes
+              let dest_index = addr_start_index dest_addr in
+              write_8_bytes_to_mem m dest_index neg_sbytes
           )
           | Ind3 (imm, reg) -> ()
           end
