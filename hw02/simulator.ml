@@ -131,7 +131,6 @@ let sbytes_of_data : data -> sbyte list = function
   | Asciz s -> sbytes_of_string s
   | Quad (Lbl _) -> invalid_arg "sbytes_of_data: tried to serialize a label!"
 
-
 (* It might be useful to toggle printing of intermediate states of your 
    simulator. *)
 let debug_simulator = ref false
@@ -146,8 +145,6 @@ let interp_cnd {fo; fs; fz} : cnd -> bool = fun x ->
   | Lt -> fs != fo
   | Le -> (fo != fs) || fz
 
-
-
 (* Maps an X86lite address into Some OCaml array index,
    or None if the address is not within the legal address space. *)
 let map_addr (addr:quad) : int option =
@@ -155,7 +152,24 @@ let map_addr (addr:quad) : int option =
   then Some(Int64.to_int(Int64.sub addr mem_bot))
   else None
 
+let reg_val (m:mach) (r: reg): int64 =
+  Array.get m.regs (rind r)
 
+exception OutOfBounds
+let addr_start_index (addr: int64): int =
+  match (map_addr addr) with
+  | None -> raise OutOfBounds
+  | Some(index) -> index
+
+let read_val (m: mach) (ind_addr: int64): sbyte list =
+  let start_index = addr_start_index ind_addr in
+  let sbytes_array = Array.sub m.mem start_index 8 in
+  Array.to_list sbytes_array
+
+let write_sbytes (m: mach) (addr: int64) (sbytes: sbyte list): unit =
+  let start_index = addr_start_index addr in
+  let aux = fun ind sb -> Array.set m.mem (start_index + ind) sb in
+  List.iteri aux sbytes
 
 (* Simulates one step of the machine:
     - fetch the instruction at %rip
@@ -166,7 +180,6 @@ let map_addr (addr:quad) : int option =
 *)
 exception UnresolvedLabel
 exception OperandError
-exception OutOfBounds
 
 let step (m:mach) : unit =
   let rip = (Array.get  m.regs (rind Rip)) in
@@ -200,7 +213,7 @@ let step (m:mach) : unit =
              | Lbl(_) -> raise UnresolvedLabel
              end
           | Reg reg -> (
-            let quad = (Array.get  m.regs (rind reg)) in
+            let quad = (reg_val m reg) in
             if quad = Int64.min_int then
               m.flags.fo <- true
             else
@@ -208,18 +221,14 @@ let step (m:mach) : unit =
           )
           | Ind1 imm -> ()
           | Ind2 reg -> (
-            let indirect_dest = (Array.get  m.regs (rind reg)) in
-            let dest_start_index = match (map_addr indirect_dest) with
-              | None -> raise OutOfBounds
-              | Some(index) -> index
-            in
-            let dest_sbytes = (Array.sub m.mem dest_start_index 8) in
-            let quad = (int64_of_sbytes (Array.to_list dest_sbytes)) in
+            let dest_addr = reg_val m reg in
+            let dest_sbytes = read_val m dest_addr in
+            let quad = int64_of_sbytes dest_sbytes in
             if quad = Int64.min_int then
               m.flags.fo <- true
             else 
-              let neg_sbytes = (sbytes_of_int64 (Int64.neg quad)) in
-              List.iteri (fun ind sb -> (Array.set m.mem (dest_start_index + ind) sb)) neg_sbytes
+              let neg_sbytes = sbytes_of_int64 (Int64.neg quad) in
+              write_sbytes m dest_addr neg_sbytes
           )
           | Ind3 (imm, reg) -> ()
           end
