@@ -266,11 +266,14 @@ let step (m:mach) : unit =
           let complement = Int64.neg data_int64 in
           begin
             match overflow with
-            | true -> m.flags.fo <- true
-            | false -> ();
-            update_flags m complement;
-            let result_sbytes = sbytes_of_int64 complement in
-            write m dest result_sbytes
+            | true ->
+               m.flags.fo <- true
+            | false ->
+               (* TODO: Verify if the correct behaviour of overflow on
+                  negation involves not setting negated value. *)
+               update_flags m complement;
+               let result_sbytes = sbytes_of_int64 complement in
+               write m dest result_sbytes
           end
         )
         | _ -> raise OperandError
