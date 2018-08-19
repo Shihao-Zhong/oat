@@ -411,8 +411,22 @@ let step (m:mach) : unit =
       | Shlq
       | Sarq
       | Shrq
-      | Jmp
-      | J(_)
+      | Jmp ->
+         begin match operands with
+         | src::[] -> (
+           let src64 = int64_of_sbytes (read m src) in
+           m.regs.(rind Rip) <- Int64.sub src64 8L; (* Compensates for last line of step function. *)
+         )
+         | _ -> raise OperandError
+         end
+      | J(cnd) ->
+         begin match operands with
+         | src::[] ->
+            if interp_cnd m.flags cnd then
+              let src64 = int64_of_sbytes (read m src) in
+              m.regs.(rind Rip) <- Int64.sub src64 8L; (* Compensates for last line of step function. *)
+         | _ -> raise OperandError
+         end
       | Cmpq ->
          begin match operands with
          | src1::src2::[] -> (
