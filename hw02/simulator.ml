@@ -298,8 +298,36 @@ let step (m:mach) : unit =
       | Pushq
       | Popq
       | Leaq
-      | Incq
-      | Decq
+      | Incq ->
+         begin match operands with
+         | dest::[] -> (
+           let d64 = int64_of_sbytes (read m dest) in
+           let s64 = 1L in
+           let r64 = Int64.add d64 s64 in
+           if (d64 < 0L && s64 < 0L && r64 > 0L) || (d64 > 0L && s64 > 0L && r64 < 0L) then
+             m.flags.fo <- true
+           else
+             m.flags.fo <- false;
+           write m dest (sbytes_of_int64 r64);
+           update_flags m r64;
+         )
+         | _ -> raise OperandError
+         end
+      | Decq ->
+         begin match operands with
+         | dest::[] -> (
+           let d64 = int64_of_sbytes (read m dest) in
+           let s64 = 1L in
+           let r64 = Int64.sub d64 s64 in
+           if (s64 = Int64.min_int) || (d64 < 0L && (Int64.sub 0L s64) < 0L && r64 > 0L) || (d64 > 0L && (Int64.sub 0L  s64) > 0L && r64 < 0L) then
+             m.flags.fo <- true
+           else
+             m.flags.fo <- false;
+           write m dest (sbytes_of_int64 r64);
+           update_flags m r64;
+         )
+         | _ -> raise OperandError
+         end
       | Notq
       | Addq ->
          begin match operands with
@@ -331,7 +359,20 @@ let step (m:mach) : unit =
          )
          | _ -> raise OperandError
          end
-      | Imulq
+      | Imulq ->
+         begin match operands with
+         | src::dest::[] -> (
+           let d64 = int64_of_sbytes (read m dest) in
+           let s64 = int64_of_sbytes (read m src) in
+           let r64 = Int64.mul d64 s64 in (* Note that (-(2^63)) * -1 overflows. *)
+           if (s64 = 0L  || d64 = 0L) || ((not (s64 = -1L && d64 = -0x80000000L)) && s64 = (Int64.div r64 d64)) then
+             m.flags.fo <- false
+           else
+             m.flags.fo <- true;
+           write m dest (sbytes_of_int64 r64);
+         )
+         | _ -> raise OperandError
+         end
       | Xorq
       | Orq
       | Andq
