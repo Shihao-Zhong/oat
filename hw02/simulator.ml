@@ -257,7 +257,7 @@ exception OperandError
 let step (m:mach) : unit =
   let rip = (Array.get  m.regs (rind Rip)) in
   let opt_addr = (map_addr rip) in
-  match opt_addr with
+  begin match opt_addr with
   | None -> () (* TODO: Check termination condition *)
   | Some(addr) -> (
     let instructionOpt = (Array.get m.mem addr) in
@@ -313,6 +313,8 @@ let step (m:mach) : unit =
       | Callq
       | Retq -> ()
   )
+  end;
+  m.regs.(rind Rip) <- Int64.add rip (Int64.of_int(8))
 
 
 (* Runs the machine until the rip register reaches a designated
