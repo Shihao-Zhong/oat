@@ -295,8 +295,24 @@ let step (m:mach) : unit =
         )
         | _ -> raise OperandError
       )
-      | Pushq
-      | Popq
+      | Pushq ->
+         begin match operands with
+         | src::[] -> (
+           m.regs.(rind Rsp) <- Int64.sub (m.regs.(rind Rsp)) 8L;
+           let src_data = read m src in
+           write m (Ind2 Rsp) src_data;
+         )
+         | _ -> raise OperandError
+         end
+      | Popq ->
+         begin match operands with
+         | dest::[] -> (
+           let top_of_stack_data = read m (Ind2 Rsp) in
+           write m dest top_of_stack_data;
+           m.regs.(rind Rsp) <- Int64.add (m.regs.(rind Rsp)) 8L;
+         )
+         | _ -> raise OperandError
+         end
       | Leaq
       | Incq ->
          begin match operands with
