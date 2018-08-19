@@ -313,7 +313,23 @@ let step (m:mach) : unit =
          )
          | _ -> raise OperandError
          end
-      | Leaq
+      | Leaq ->
+         begin match operands with
+         | ind::dest::[] ->
+            begin match ind with
+            | Ind1 Lit quad ->
+               let addr_sbytes = sbytes_of_int64 quad in
+               write m dest addr_sbytes;
+            | Ind2 reg ->
+               let addr_sbytes = sbytes_of_int64 (reg_val m reg) in
+               write m dest addr_sbytes;
+            | Ind3 (Lit offset, reg) ->
+               let addr_sbytes = sbytes_of_int64 (Int64.add (reg_val m reg) offset) in
+               write m dest addr_sbytes;
+            | _ -> raise OperandError
+            end
+         | _ -> raise OperandError
+         end
       | Incq ->
          begin match operands with
          | dest::[] -> (
