@@ -233,17 +233,12 @@ let update_flags = fun m res ->
   | 0 -> m.flags.fz <- true
   | -1 -> m.flags.fs <- true
   | 1 -> ()
-  | _ -> failwith "unexpected resutl" 
+  | _ -> failwith "unexpected result" 
   
 
-let twos_compliment = fun x ->
-  if x = Int64.zero then
-    (Int64.zero, true)
-  else
-    let (+) = Int64.add in
-    let (^) = Int64.logxor in
-    let complement = Int64.neg ((x ^ Int64.max_int) + Int64.one) in
-    (complement, false)
+let twos_compliment_negation = fun x ->
+  let overflow = Int64.equal (Int64.min_int) x in
+  ((Int64.neg x), overflow)
 
 (* Simulates one step of the machine:
     - fetch the instruction at %rip
@@ -271,7 +266,7 @@ let step (m:mach) : unit =
         | dest::[] -> (
           let data_sbytes = read m dest in
           let data_int64 = int64_of_sbytes data_sbytes in
-          let (complement, overflow) = twos_compliment data_int64 in
+          let (complement, overflow) = twos_compliment_negation data_int64 in
           begin
             match overflow with
             | true -> m.flags.fo <- true
