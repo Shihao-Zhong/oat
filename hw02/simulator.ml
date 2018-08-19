@@ -316,7 +316,21 @@ let step (m:mach) : unit =
          )
          | _ -> raise OperandError
          end
-      | Subq
+      | Subq ->
+         begin match operands with
+         | src::dest::[] -> (
+           let d64 = int64_of_sbytes (read m dest) in
+           let s64 = int64_of_sbytes (read m src) in
+           let r64 = Int64.sub d64 s64 in
+           if (s64 = Int64.min_int) || (d64 < 0L && (Int64.sub 0L s64) < 0L && r64 > 0L) || (d64 > 0L && (Int64.sub 0L  s64) > 0L && r64 < 0L) then
+             m.flags.fo <- true
+           else
+             m.flags.fo <- false;
+           write m dest (sbytes_of_int64 r64);
+           update_flags m r64;
+         )
+         | _ -> raise OperandError
+         end
       | Imulq
       | Xorq
       | Orq
