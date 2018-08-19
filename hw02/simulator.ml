@@ -454,7 +454,18 @@ let step (m:mach) : unit =
          )
          | _ -> raise OperandError
          end 
-      | Retq -> ()
+      | Retq ->
+         begin match operands with
+         | [] ->
+            begin
+              let top_of_stack_data = read m (Ind2 Rsp) in
+              let top_of_stack_data64 = int64_of_sbytes top_of_stack_data in
+              let offsetted_top_of_stack_data64 = Int64.sub top_of_stack_data64 8L in (* Compensates for last line of step function. *)
+              m.regs.(rind Rip) <- offsetted_top_of_stack_data64;
+              m.regs.(rind Rsp) <- Int64.add (m.regs.(rind Rsp)) 8L;
+            end
+         | _ -> raise OperandError
+         end
   )
   end;
   m.regs.(rind Rip) <- Int64.add rip (Int64.of_int(8))
