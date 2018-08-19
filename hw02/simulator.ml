@@ -443,7 +443,17 @@ let step (m:mach) : unit =
          | _ -> raise OperandError
          end
       | Set(_)
-      | Callq
+      | Callq ->
+        begin match operands with
+         | src::[] -> (
+           m.regs.(rind Rsp) <- Int64.sub (m.regs.(rind Rsp)) 8L;
+           let rip_data = read m (Reg Rip) in
+           write m (Ind2 Rsp) rip_data;
+           let src64 = int64_of_sbytes (read m src) in
+           m.regs.(rind Rip) <- Int64.sub src64 8L; (* Compensates for last line of step function. *)
+         )
+         | _ -> raise OperandError
+         end 
       | Retq -> ()
   )
   end;
