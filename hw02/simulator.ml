@@ -236,10 +236,6 @@ let update_flags = fun m res ->
   | _ -> failwith "unexpected result" 
   
 
-let twos_compliment_negation = fun x ->
-  let overflow = Int64.equal (Int64.min_int) x in
-  ((Int64.neg x), overflow)
-
 (* Simulates one step of the machine:
     - fetch the instruction at %rip
     - compute the source and/or destination information from the operands
@@ -266,7 +262,8 @@ let step (m:mach) : unit =
         | dest::[] -> (
           let data_sbytes = read m dest in
           let data_int64 = int64_of_sbytes data_sbytes in
-          let (complement, overflow) = twos_compliment_negation data_int64 in
+          let overflow = Int64.equal (Int64.min_int) data_int64 in
+          let complement = Int64.neg data_int64 in
           begin
             match overflow with
             | true -> m.flags.fo <- true
