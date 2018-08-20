@@ -458,12 +458,51 @@ let step (m:mach) : unit =
         | dest::[] ->
           let dest_int64 = int64_of_sbytes (read m dest) in
           let result_int64 = Int64.lognot dest_int64 in
-          write m dest (sbytes_of_int64 result_int64)
+          begin
+            write m dest (sbytes_of_int64 result_int64);
+            update_flags m result_int64;
+          end
         | _ -> raise OperandError
         end
-      | Xorq
-      | Orq
-      | Andq
+      | Xorq ->
+        begin match operands with
+        | src::dest::[] ->
+          let src_int64 = int64_of_sbytes (read m src) in
+          let dest_int64 = int64_of_sbytes (read m dest) in
+          let result_int64 = Int64.logxor src_int64 dest_int64 in
+          begin
+            write m dest (sbytes_of_int64 result_int64);
+            update_flags m result_int64;
+            m.flags.fo <- false;
+          end
+        | _ -> raise OperandError
+        end
+      | Orq ->
+        begin match operands with
+        | src::dest::[] ->
+          let src_int64 = int64_of_sbytes (read m src) in
+          let dest_int64 = int64_of_sbytes (read m dest) in
+          let result_int64 = Int64.logor src_int64 dest_int64 in
+          begin
+            write m dest (sbytes_of_int64 result_int64);
+            update_flags m result_int64;
+            m.flags.fo <- false;
+          end
+        | _ -> raise OperandError
+        end
+      | Andq ->
+        begin match operands with
+        | src::dest::[] ->
+          let src_int64 = int64_of_sbytes (read m src) in
+          let dest_int64 = int64_of_sbytes (read m dest) in
+          let result_int64 = Int64.logand src_int64 dest_int64 in
+          begin
+            write m dest (sbytes_of_int64 result_int64);
+            update_flags m result_int64;
+            m.flags.fo <- false;
+          end
+        | _ -> raise OperandError
+        end
       | Shlq
       | Sarq
       | Shrq -> ()
