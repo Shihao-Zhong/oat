@@ -453,7 +453,14 @@ let step (m:mach) : unit =
             end
          | _ -> raise OperandError
          end
-      | Notq
+      | Notq ->
+        begin match operands with
+        | dest::[] ->
+          let dest_int64 = int64_of_sbytes (read m dest) in
+          let result_int64 = Int64.lognot dest_int64 in
+          write m dest (sbytes_of_int64 result_int64)
+        | _ -> raise OperandError
+        end
       | Xorq
       | Orq
       | Andq
