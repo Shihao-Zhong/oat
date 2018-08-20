@@ -503,9 +503,63 @@ let step (m:mach) : unit =
           end
         | _ -> raise OperandError
         end
-      | Shlq
-      | Sarq
-      | Shrq -> ()
+      | Shlq ->
+        begin match operands with
+        | amt::dest::[] ->
+          let amt_int = Int64.to_int (int64_of_sbytes (read m amt)) in
+          let dest_int64 = int64_of_sbytes (read m dest) in
+          let result_int64 = Int64.shift_left dest_int64 amt_int in
+          begin
+            write m dest (sbytes_of_int64 result_int64);
+            match amt_int with
+            | 0 -> ()
+            | 1 -> (
+              update_flags m result_int64;
+              let sign_bit = Int64.shift_right_logical dest_int64 63 |> Int64.to_int in
+              let most_sig_bit = Int64.shift_right_logical dest_int64 62 |> Int64.logand 1L |> Int64.to_int in
+              m.flags.fo <- sign_bit <> most_sig_bit
+            )
+            | _ -> update_flags m result_int64
+          end
+        | _ -> raise OperandError
+        end
+      | Sarq ->
+        begin match operands with
+        | amt::dest::[] ->
+          let amt_int = Int64.to_int (int64_of_sbytes (read m amt)) in
+          let dest_int64 = int64_of_sbytes (read m dest) in
+          let result_int64 = Int64.shift_right dest_int64 amt_int in
+          begin
+            write m dest (sbytes_of_int64 result_int64);
+            match amt_int with
+            | 0 -> ()
+            | 1 -> (
+              update_flags m result_int64;
+              m.flags.fo <- false;
+            )
+            | _ -> update_flags m result_int64
+          end
+        | _ -> raise OperandError
+        end
+      | Shrq ->
+        begin match operands with
+        | amt::dest::[] ->
+          let amt_int = Int64.to_int (int64_of_sbytes (read m amt)) in
+          let dest_int64 = int64_of_sbytes (read m dest) in
+          let result_int64 = Int64.shift_right_logical dest_int64 amt_int in
+          begin
+            write m dest (sbytes_of_int64 result_int64);
+            match amt_int with
+            | 0 -> ()
+            | 1 -> (
+              update_flags m result_int64;
+              let sign_bit = Int64.shift_right_logical dest_int64 63 |> Int64.to_int in
+              m.flags.fo <- sign_bit = 1;
+            )
+            | _ -> update_flags m result_int64
+          end
+        | _ -> raise OperandError
+        end
       | Set(cnd) -> 
         begin match operands with
         | dest::[] ->
