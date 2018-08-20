@@ -355,7 +355,6 @@ let step (m:mach) : unit =
          )
          | _ -> raise OperandError
          end
-      | Notq
       | Addq ->
          begin match operands with
          | src::dest::[] -> (
@@ -400,12 +399,6 @@ let step (m:mach) : unit =
          )
          | _ -> raise OperandError
          end
-      | Xorq
-      | Orq
-      | Andq
-      | Shlq
-      | Sarq
-      | Shrq
       | Jmp ->
          begin match operands with
          | src::[] -> (
@@ -437,7 +430,6 @@ let step (m:mach) : unit =
          )
          | _ -> raise OperandError
          end
-      | Set(_)
       | Callq ->
         begin match operands with
          | src::[] -> (
@@ -461,6 +453,25 @@ let step (m:mach) : unit =
             end
          | _ -> raise OperandError
          end
+      | Notq
+      | Xorq
+      | Orq
+      | Andq
+      | Shlq
+      | Sarq
+      | Shrq -> ()
+      | Set(cnd) -> 
+        begin match operands with
+        | dest::[] ->
+          let dest_sbytes = sbytes_of_int64 (int64_of_sbytes (read m dest)) in
+          let result_sbytes = match (dest_sbytes, (interp_cnd m.flags cnd)) with
+          | (hd::tail, true) -> Byte(Char.chr 1)::tail
+          | (hd::tail, false) -> Byte(Char.chr 0)::tail
+          | _ -> failwith "damn"
+          in
+          write m dest result_sbytes
+        | _ -> raise OperandError
+        end
   )
   end;
   m.regs.(rind Rip) <- Int64.add rip (Int64.of_int(8))
