@@ -166,7 +166,7 @@ let read_8_bytes_from_mem (m: mach) (start_index: int): sbyte list =
   Array.to_list sbytes_array
 
 exception UnresolvedLabel
-let read = fun m addr ->
+let read_from_addr = fun m addr ->
   match addr with
   | Imm Lbl _ -> raise UnresolvedLabel
   | Imm Lit quad -> sbytes_of_int64 quad
@@ -199,7 +199,7 @@ let write_8_bytes_to_mem = fun m start_index sbytes ->
   let aux = fun ind sb -> Array.set m.mem (start_index + ind) sb in
   List.iteri aux sbytes
 
-let write = fun m addr data ->
+let write_to_addr = fun m addr data ->
   match addr with
   | Imm Lbl _ -> raise UnresolvedLabel
   | Imm Lit _ -> ()
@@ -255,6 +255,8 @@ let update_flags = fun m res ->
 exception OperandError
 
 let step (m:mach) : unit =
+  let read = read_from_addr m in
+  let write = write_to_addr m in
   let rip = (Array.get  m.regs (rind Rip)) in
   let opt_addr = (map_addr rip) in
   begin match opt_addr with
@@ -269,7 +271,7 @@ let step (m:mach) : unit =
       | Negq -> (
         match operands with
         | dest::[] -> (
-          let data_sbytes = read m dest in
+          let data_sbytes = read dest in
           let data_int64 = int64_of_sbytes data_sbytes in
           let overflow = Int64.equal (Int64.min_int) data_int64 in
           let complement = Int64.neg data_int64 in
@@ -277,7 +279,7 @@ let step (m:mach) : unit =
             m.flags.fo <- overflow;
             update_flags m complement;
             let result_sbytes = sbytes_of_int64 complement in
-            write m dest result_sbytes;
+            write dest result_sbytes;
           end
         )
         | _ -> raise OperandError
@@ -285,8 +287,8 @@ let step (m:mach) : unit =
       | Movq -> (
         match operands with
         | src::dest::[] -> (
-          let data = read m src in
-          write m dest data
+          let data = read src in
+          write dest data
         )
         | _ -> raise OperandError
       )
@@ -294,16 +296,16 @@ let step (m:mach) : unit =
          begin match operands with
          | src::[] -> (
            m.regs.(rind Rsp) <- Int64.sub (m.regs.(rind Rsp)) 8L;
-           let src_data = read m src in
-           write m (Ind2 Rsp) src_data;
+           let src_data = read src in
+           write (Ind2 Rsp) src_data;
          )
          | _ -> raise OperandError
          end
       | Popq ->
          begin match operands with
          | dest::[] -> (
-           let top_of_stack_data = read m (Ind2 Rsp) in
-           write m dest top_of_stack_data;
+           let top_of_stack_data = read (Ind2 Rsp) in
+           write dest top_of_stack_data;
            m.regs.(rind Rsp) <- Int64.add (m.regs.(rind Rsp)) 8L;
          )
          | _ -> raise OperandError
@@ -314,13 +316,13 @@ let step (m:mach) : unit =
             begin match ind with
             | Ind1 Lit quad ->
                let addr_sbytes = sbytes_of_int64 quad in
-               write m dest addr_sbytes;
+               write dest addr_sbytes;
             | Ind2 reg ->
                let addr_sbytes = sbytes_of_int64 (reg_val m reg) in
-               write m dest addr_sbytes;
+               write dest addr_sbytes;
             | Ind3 (Lit offset, reg) ->
                let addr_sbytes = sbytes_of_int64 (Int64.add (reg_val m reg) offset) in
-               write m dest addr_sbytes;
+               write dest addr_sbytes;
             | _ -> raise OperandError
             end
          | _ -> raise OperandError
@@ -328,14 +330,14 @@ let step (m:mach) : unit =
       | Incq ->
          begin match operands with
          | dest::[] -> (
-           let d64 = int64_of_sbytes (read m dest) in
+           let d64 = int64_of_sbytes (read dest) in
            let s64 = 1L in
            let r64 = Int64.add d64 s64 in
            if (d64 < 0L && s64 < 0L && r64 > 0L) || (d64 > 0L && s64 > 0L && r64 < 0L) then
              m.flags.fo <- true
            else
              m.flags.fo <- false;
-           write m dest (sbytes_of_int64 r64);
+           write dest (sbytes_of_int64 r64);
            update_flags m r64;
          )
          | _ -> raise OperandError
@@ -343,14 +345,14 @@ let step (m:mach) : unit =
       | Decq ->
          begin match operands with
          | dest::[] -> (
-           let d64 = int64_of_sbytes (read m dest) in
+           let d64 = int64_of_sbytes (read dest) in
            let s64 = 1L in
            let r64 = Int64.sub d64 s64 in
            if (s64 = Int64.min_int) || (d64 < 0L && (Int64.sub 0L s64) < 0L && r64 > 0L) || (d64 > 0L && (Int64.sub 0L  s64) > 0L && r64 < 0L) then
              m.flags.fo <- true
            else
              m.flags.fo <- false;
-           write m dest (sbytes_of_int64 r64);
+           write dest (sbytes_of_int64 r64);
            update_flags m r64;
          )
          | _ -> raise OperandError
@@ -358,14 +360,14 @@ let step (m:mach) : unit =
       | Addq ->
          begin match operands with
          | src::dest::[] -> (
-           let d64 = int64_of_sbytes (read m dest) in
-           let s64 = int64_of_sbytes (read m src) in
+           let d64 = int64_of_sbytes (read dest) in
+           let s64 = int64_of_sbytes (read src) in
            let r64 = Int64.add d64 s64 in
            if (d64 < 0L && s64 < 0L && r64 > 0L) || (d64 > 0L && s64 > 0L && r64 < 0L) then
              m.flags.fo <- true
            else
              m.flags.fo <- false;
-           write m dest (sbytes_of_int64 r64);
+           write dest (sbytes_of_int64 r64);
            update_flags m r64;
          )
          | _ -> raise OperandError
@@ -373,14 +375,14 @@ let step (m:mach) : unit =
       | Subq ->
          begin match operands with
          | src::dest::[] -> (
-           let d64 = int64_of_sbytes (read m dest) in
-           let s64 = int64_of_sbytes (read m src) in
+           let d64 = int64_of_sbytes (read dest) in
+           let s64 = int64_of_sbytes (read src) in
            let r64 = Int64.sub d64 s64 in
            if (s64 = Int64.min_int) || (d64 < 0L && (Int64.sub 0L s64) < 0L && r64 > 0L) || (d64 > 0L && (Int64.sub 0L  s64) > 0L && r64 < 0L) then
              m.flags.fo <- true
            else
              m.flags.fo <- false;
-           write m dest (sbytes_of_int64 r64);
+           write dest (sbytes_of_int64 r64);
            update_flags m r64;
          )
          | _ -> raise OperandError
@@ -388,21 +390,21 @@ let step (m:mach) : unit =
       | Imulq ->
          begin match operands with
          | src::dest::[] -> (
-           let d64 = int64_of_sbytes (read m dest) in
-           let s64 = int64_of_sbytes (read m src) in
+           let d64 = int64_of_sbytes (read dest) in
+           let s64 = int64_of_sbytes (read src) in
            let r64 = Int64.mul d64 s64 in (* Note that (-(2^63)) * -1 overflows. *)
            if (s64 = 0L  || d64 = 0L) || ((not (s64 = -1L && d64 = -0x80000000L)) && s64 = (Int64.div r64 d64)) then
              m.flags.fo <- false
            else
              m.flags.fo <- true;
-           write m dest (sbytes_of_int64 r64);
+           write dest (sbytes_of_int64 r64);
          )
          | _ -> raise OperandError
          end
       | Jmp ->
          begin match operands with
          | src::[] -> (
-           let src64 = int64_of_sbytes (read m src) in
+           let src64 = int64_of_sbytes (read src) in
            m.regs.(rind Rip) <- Int64.sub src64 8L; (* Compensates for last line of step function. *)
          )
          | _ -> raise OperandError
@@ -411,21 +413,21 @@ let step (m:mach) : unit =
          begin match operands with
          | src::[] ->
             if interp_cnd m.flags cnd then
-              let src64 = int64_of_sbytes (read m src) in
+              let src64 = int64_of_sbytes (read src) in
               m.regs.(rind Rip) <- Int64.sub src64 8L; (* Compensates for last line of step function. *)
          | _ -> raise OperandError
          end
       | Cmpq ->
          begin match operands with
          | src1::src2::[] -> (
-           let d64 = int64_of_sbytes (read m src2) in
-           let s64 = int64_of_sbytes (read m src1) in
+           let d64 = int64_of_sbytes (read src2) in
+           let s64 = int64_of_sbytes (read src1) in
            let r64 = Int64.sub d64 s64 in
            if (s64 = Int64.min_int) || (d64 < 0L && (Int64.sub 0L s64) < 0L && r64 > 0L) || (d64 > 0L && (Int64.sub 0L  s64) > 0L && r64 < 0L) then
              m.flags.fo <- true
            else
              m.flags.fo <- false;
-           (* write m dest (sbytes_of_int64 r64); *)
+           (* write dest (sbytes_of_int64 r64); *)
            update_flags m r64;
          )
          | _ -> raise OperandError
@@ -434,9 +436,9 @@ let step (m:mach) : unit =
         begin match operands with
          | src::[] -> (
            m.regs.(rind Rsp) <- Int64.sub (m.regs.(rind Rsp)) 8L;
-           let rip_data = read m (Reg Rip) in
-           write m (Ind2 Rsp) rip_data;
-           let src64 = int64_of_sbytes (read m src) in
+           let rip_data = read (Reg Rip) in
+           write (Ind2 Rsp) rip_data;
+           let src64 = int64_of_sbytes (read src) in
            m.regs.(rind Rip) <- Int64.sub src64 8L; (* Compensates for last line of step function. *)
          )
          | _ -> raise OperandError
@@ -445,7 +447,7 @@ let step (m:mach) : unit =
          begin match operands with
          | [] ->
             begin
-              let top_of_stack_data = read m (Ind2 Rsp) in
+              let top_of_stack_data = read (Ind2 Rsp) in
               let top_of_stack_data64 = int64_of_sbytes top_of_stack_data in
               let offsetted_top_of_stack_data64 = Int64.sub top_of_stack_data64 8L in (* Compensates for last line of step function. *)
               m.regs.(rind Rip) <- offsetted_top_of_stack_data64;
@@ -456,10 +458,10 @@ let step (m:mach) : unit =
       | Notq ->
         begin match operands with
         | dest::[] ->
-          let dest_int64 = int64_of_sbytes (read m dest) in
+          let dest_int64 = int64_of_sbytes (read dest) in
           let result_int64 = Int64.lognot dest_int64 in
           begin
-            write m dest (sbytes_of_int64 result_int64);
+            write dest (sbytes_of_int64 result_int64);
             update_flags m result_int64;
           end
         | _ -> raise OperandError
@@ -467,11 +469,11 @@ let step (m:mach) : unit =
       | Xorq ->
         begin match operands with
         | src::dest::[] ->
-          let src_int64 = int64_of_sbytes (read m src) in
-          let dest_int64 = int64_of_sbytes (read m dest) in
+          let src_int64 = int64_of_sbytes (read src) in
+          let dest_int64 = int64_of_sbytes (read dest) in
           let result_int64 = Int64.logxor src_int64 dest_int64 in
           begin
-            write m dest (sbytes_of_int64 result_int64);
+            write dest (sbytes_of_int64 result_int64);
             update_flags m result_int64;
             m.flags.fo <- false;
           end
@@ -480,11 +482,11 @@ let step (m:mach) : unit =
       | Orq ->
         begin match operands with
         | src::dest::[] ->
-          let src_int64 = int64_of_sbytes (read m src) in
-          let dest_int64 = int64_of_sbytes (read m dest) in
+          let src_int64 = int64_of_sbytes (read src) in
+          let dest_int64 = int64_of_sbytes (read dest) in
           let result_int64 = Int64.logor src_int64 dest_int64 in
           begin
-            write m dest (sbytes_of_int64 result_int64);
+            write dest (sbytes_of_int64 result_int64);
             update_flags m result_int64;
             m.flags.fo <- false;
           end
@@ -493,11 +495,11 @@ let step (m:mach) : unit =
       | Andq ->
         begin match operands with
         | src::dest::[] ->
-          let src_int64 = int64_of_sbytes (read m src) in
-          let dest_int64 = int64_of_sbytes (read m dest) in
+          let src_int64 = int64_of_sbytes (read src) in
+          let dest_int64 = int64_of_sbytes (read dest) in
           let result_int64 = Int64.logand src_int64 dest_int64 in
           begin
-            write m dest (sbytes_of_int64 result_int64);
+            write dest (sbytes_of_int64 result_int64);
             update_flags m result_int64;
             m.flags.fo <- false;
           end
@@ -506,11 +508,11 @@ let step (m:mach) : unit =
       | Shlq ->
         begin match operands with
         | amt::dest::[] ->
-          let amt_int = Int64.to_int (int64_of_sbytes (read m amt)) in
-          let dest_int64 = int64_of_sbytes (read m dest) in
+          let amt_int = Int64.to_int (int64_of_sbytes (read amt)) in
+          let dest_int64 = int64_of_sbytes (read dest) in
           let result_int64 = Int64.shift_left dest_int64 amt_int in
           begin
-            write m dest (sbytes_of_int64 result_int64);
+            write dest (sbytes_of_int64 result_int64);
             match amt_int with
             | 0 -> ()
             | 1 -> (
@@ -526,11 +528,11 @@ let step (m:mach) : unit =
       | Sarq ->
         begin match operands with
         | amt::dest::[] ->
-          let amt_int = Int64.to_int (int64_of_sbytes (read m amt)) in
-          let dest_int64 = int64_of_sbytes (read m dest) in
+          let amt_int = Int64.to_int (int64_of_sbytes (read amt)) in
+          let dest_int64 = int64_of_sbytes (read dest) in
           let result_int64 = Int64.shift_right dest_int64 amt_int in
           begin
-            write m dest (sbytes_of_int64 result_int64);
+            write dest (sbytes_of_int64 result_int64);
             match amt_int with
             | 0 -> ()
             | 1 -> (
@@ -544,11 +546,11 @@ let step (m:mach) : unit =
       | Shrq ->
         begin match operands with
         | amt::dest::[] ->
-          let amt_int = Int64.to_int (int64_of_sbytes (read m amt)) in
-          let dest_int64 = int64_of_sbytes (read m dest) in
+          let amt_int = Int64.to_int (int64_of_sbytes (read amt)) in
+          let dest_int64 = int64_of_sbytes (read dest) in
           let result_int64 = Int64.shift_right_logical dest_int64 amt_int in
           begin
-            write m dest (sbytes_of_int64 result_int64);
+            write dest (sbytes_of_int64 result_int64);
             match amt_int with
             | 0 -> ()
             | 1 -> (
@@ -563,13 +565,13 @@ let step (m:mach) : unit =
       | Set(cnd) -> 
         begin match operands with
         | dest::[] ->
-          let dest_sbytes = sbytes_of_int64 (int64_of_sbytes (read m dest)) in
+          let dest_sbytes = sbytes_of_int64 (int64_of_sbytes (read dest)) in
           let result_sbytes = match (dest_sbytes, (interp_cnd m.flags cnd)) with
           | (hd::tail, true) -> Byte(Char.chr 1)::tail
           | (hd::tail, false) -> Byte(Char.chr 0)::tail
           | _ -> failwith "damn"
           in
-          write m dest result_sbytes
+          write dest result_sbytes
         | _ -> raise OperandError
         end
   )
