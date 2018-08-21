@@ -228,7 +228,7 @@ let write_to_addr = fun m addr data ->
     write_8_bytes_to_mem m start_index data
   )
 
-let update_flags = fun m res ->
+let update_fs_and_fz_flags = fun m res ->
   match (Int64.compare res Int64.zero) with
   | 0 -> (
     m.flags.fz <- true;
@@ -243,8 +243,20 @@ let update_flags = fun m res ->
     m.flags.fs <- false;
   )
   | _ -> failwith "unexpected result" 
-  
 
+let increment_stack_pointer m =
+  m.regs.(rind Rsp) <- Int64.sub (m.regs.(rind Rsp)) 8L
+
+let decrement_stack_pointer m =
+  m.regs.(rind Rsp) <- Int64.add (m.regs.(rind Rsp)) 8L
+
+let increment_program_counter m =
+  m.regs.(rind Rip) <- Int64.add (m.regs.(rind Rip)) 8L
+
+let decrement_program_counter m =
+  m.regs.(rind Rip) <- Int64.sub (m.regs.(rind Rip)) 8L
+
+  
 (* Simulates one step of the machine:
     - fetch the instruction at %rip
     - compute the source and/or destination information from the operands
@@ -257,6 +269,11 @@ exception OperandError
 let step (m:mach) : unit =
   let read = read_from_addr m in
   let write = write_to_addr m in
+  let update_fs_and_fz_flags = update_fs_and_fz_flags m in
+  let decrement_stack_pointer = fun () -> decrement_stack_pointer m in
+  let increment_stack_pointer = fun () -> increment_stack_pointer m in
+  let decrement_program_counter = fun () -> decrement_program_counter m in
+  let increment_program_counter = fun () -> increment_program_counter m in
   let rip = (Array.get  m.regs (rind Rip)) in
   let opt_addr = (map_addr rip) in
   begin match opt_addr with
@@ -271,13 +288,13 @@ let step (m:mach) : unit =
       | Negq -> (
         match operands with
         | dest::[] -> (
-          let data_sbytes = read dest in
-          let data_int64 = int64_of_sbytes data_sbytes in
-          let overflow = Int64.equal (Int64.min_int) data_int64 in
-          let complement = Int64.neg data_int64 in
+          let dest_sbytes = read dest in
+          let dest_int64 = int64_of_sbytes dest_sbytes in
+          let overflow = Int64.equal Int64.min_int dest_int64 in
+          let complement = Int64.neg dest_int64 in
           begin
             m.flags.fo <- overflow;
-            update_flags m complement;
+            update_fs_and_fz_flags complement;
             let result_sbytes = sbytes_of_int64 complement in
             write dest result_sbytes;
           end
@@ -287,17 +304,17 @@ let step (m:mach) : unit =
       | Movq -> (
         match operands with
         | src::dest::[] -> (
-          let data = read src in
-          write dest data
+          let src_sbytes = read src in
+          write dest src_sbytes
         )
         | _ -> raise OperandError
       )
       | Pushq ->
          begin match operands with
          | src::[] -> (
-           m.regs.(rind Rsp) <- Int64.sub (m.regs.(rind Rsp)) 8L;
-           let src_data = read src in
-           write (Ind2 Rsp) src_data;
+           increment_stack_pointer();
+           let src_sbytes = read src in
+           write (Ind2 Rsp) src_sbytes;
          )
          | _ -> raise OperandError
          end
@@ -306,7 +323,7 @@ let step (m:mach) : unit =
          | dest::[] -> (
            let top_of_stack_data = read (Ind2 Rsp) in
            write dest top_of_stack_data;
-           m.regs.(rind Rsp) <- Int64.add (m.regs.(rind Rsp)) 8L;
+           decrement_stack_pointer();
          )
          | _ -> raise OperandError
          end
@@ -338,7 +355,7 @@ let step (m:mach) : unit =
            else
              m.flags.fo <- false;
            write dest (sbytes_of_int64 r64);
-           update_flags m r64;
+           update_fs_and_fz_flags r64;
          )
          | _ -> raise OperandError
          end
@@ -353,7 +370,7 @@ let step (m:mach) : unit =
            else
              m.flags.fo <- false;
            write dest (sbytes_of_int64 r64);
-           update_flags m r64;
+           update_fs_and_fz_flags r64;
          )
          | _ -> raise OperandError
          end
@@ -368,7 +385,7 @@ let step (m:mach) : unit =
            else
              m.flags.fo <- false;
            write dest (sbytes_of_int64 r64);
-           update_flags m r64;
+           update_fs_and_fz_flags r64;
          )
          | _ -> raise OperandError
          end
@@ -383,7 +400,7 @@ let step (m:mach) : unit =
            else
              m.flags.fo <- false;
            write dest (sbytes_of_int64 r64);
-           update_flags m r64;
+           update_fs_and_fz_flags r64;
          )
          | _ -> raise OperandError
          end
@@ -405,7 +422,8 @@ let step (m:mach) : unit =
          begin match operands with
          | src::[] -> (
            let src64 = int64_of_sbytes (read src) in
-           m.regs.(rind Rip) <- Int64.sub src64 8L; (* Compensates for last line of step function. *)
+           m.regs.(rind Rip) <- src64; (* Compensates for last line of step function. *)
+           decrement_program_counter();
          )
          | _ -> raise OperandError
          end
@@ -414,7 +432,8 @@ let step (m:mach) : unit =
          | src::[] ->
             if interp_cnd m.flags cnd then
               let src64 = int64_of_sbytes (read src) in
-              m.regs.(rind Rip) <- Int64.sub src64 8L; (* Compensates for last line of step function. *)
+              m.regs.(rind Rip) <- src64; (* Compensates for last line of step function. *)
+              decrement_program_counter();
          | _ -> raise OperandError
          end
       | Cmpq ->
@@ -428,18 +447,19 @@ let step (m:mach) : unit =
            else
              m.flags.fo <- false;
            (* write dest (sbytes_of_int64 r64); *)
-           update_flags m r64;
+           update_fs_and_fz_flags r64;
          )
          | _ -> raise OperandError
          end
       | Callq ->
         begin match operands with
          | src::[] -> (
-           m.regs.(rind Rsp) <- Int64.sub (m.regs.(rind Rsp)) 8L;
+           increment_stack_pointer();
            let rip_data = read (Reg Rip) in
            write (Ind2 Rsp) rip_data;
            let src64 = int64_of_sbytes (read src) in
-           m.regs.(rind Rip) <- Int64.sub src64 8L; (* Compensates for last line of step function. *)
+           m.regs.(rind Rip) <- src64; (* Compensates for last line of step function. *)
+           decrement_program_counter();
          )
          | _ -> raise OperandError
          end 
@@ -451,7 +471,7 @@ let step (m:mach) : unit =
               let top_of_stack_data64 = int64_of_sbytes top_of_stack_data in
               let offsetted_top_of_stack_data64 = Int64.sub top_of_stack_data64 8L in (* Compensates for last line of step function. *)
               m.regs.(rind Rip) <- offsetted_top_of_stack_data64;
-              m.regs.(rind Rsp) <- Int64.add (m.regs.(rind Rsp)) 8L;
+              decrement_stack_pointer();
             end
          | _ -> raise OperandError
          end
@@ -462,7 +482,7 @@ let step (m:mach) : unit =
           let result_int64 = Int64.lognot dest_int64 in
           begin
             write dest (sbytes_of_int64 result_int64);
-            update_flags m result_int64;
+            update_fs_and_fz_flags result_int64;
           end
         | _ -> raise OperandError
         end
@@ -474,7 +494,7 @@ let step (m:mach) : unit =
           let result_int64 = Int64.logxor src_int64 dest_int64 in
           begin
             write dest (sbytes_of_int64 result_int64);
-            update_flags m result_int64;
+            update_fs_and_fz_flags result_int64;
             m.flags.fo <- false;
           end
         | _ -> raise OperandError
@@ -487,7 +507,7 @@ let step (m:mach) : unit =
           let result_int64 = Int64.logor src_int64 dest_int64 in
           begin
             write dest (sbytes_of_int64 result_int64);
-            update_flags m result_int64;
+            update_fs_and_fz_flags result_int64;
             m.flags.fo <- false;
           end
         | _ -> raise OperandError
@@ -500,7 +520,7 @@ let step (m:mach) : unit =
           let result_int64 = Int64.logand src_int64 dest_int64 in
           begin
             write dest (sbytes_of_int64 result_int64);
-            update_flags m result_int64;
+            update_fs_and_fz_flags result_int64;
             m.flags.fo <- false;
           end
         | _ -> raise OperandError
@@ -516,12 +536,12 @@ let step (m:mach) : unit =
             match amt_int with
             | 0 -> ()
             | 1 -> (
-              update_flags m result_int64;
+              update_fs_and_fz_flags result_int64;
               let sign_bit = Int64.shift_right_logical dest_int64 63 |> Int64.to_int in
               let most_sig_bit = Int64.shift_right_logical dest_int64 62 |> Int64.logand 1L |> Int64.to_int in
               m.flags.fo <- sign_bit <> most_sig_bit
             )
-            | _ -> update_flags m result_int64
+            | _ -> update_fs_and_fz_flags result_int64
           end
         | _ -> raise OperandError
         end
@@ -536,10 +556,10 @@ let step (m:mach) : unit =
             match amt_int with
             | 0 -> ()
             | 1 -> (
-              update_flags m result_int64;
+              update_fs_and_fz_flags result_int64;
               m.flags.fo <- false;
             )
-            | _ -> update_flags m result_int64
+            | _ -> update_fs_and_fz_flags result_int64
           end
         | _ -> raise OperandError
         end
@@ -554,11 +574,11 @@ let step (m:mach) : unit =
             match amt_int with
             | 0 -> ()
             | 1 -> (
-              update_flags m result_int64;
+              update_fs_and_fz_flags result_int64;
               let sign_bit = Int64.shift_right_logical dest_int64 63 |> Int64.to_int in
               m.flags.fo <- sign_bit = 1;
             )
-            | _ -> update_flags m result_int64
+            | _ -> update_fs_and_fz_flags result_int64
           end
         | _ -> raise OperandError
         end
@@ -576,7 +596,7 @@ let step (m:mach) : unit =
         end
   )
   end;
-  m.regs.(rind Rip) <- Int64.add rip (Int64.of_int(8))
+  increment_program_counter()
 
 
 (* Runs the machine until the rip register reaches a designated
