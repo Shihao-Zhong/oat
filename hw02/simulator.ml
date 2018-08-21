@@ -256,6 +256,19 @@ let increment_program_counter m =
 let decrement_program_counter m =
   m.regs.(rind Rip) <- Int64.sub (m.regs.(rind Rip)) 8L
 
+
+let perform_arithmetic_instruction = fun m op src dest overflow_cond ->
+  let read = read_from_addr m in
+  let write = write_to_addr m in
+  let update_fs_and_fz_flags = update_fs_and_fz_flags m in
+  let d64 = int64_of_sbytes (read dest) in
+  let s64 = int64_of_sbytes (read src) in
+  let r64 = op d64 s64 in
+  begin
+    m.flags.fo <- overflow_cond s64 d64 r64;
+    write dest (sbytes_of_int64 r64);
+    update_fs_and_fz_flags r64;
+  end
   
 (* Simulates one step of the machine:
     - fetch the instruction at %rip
@@ -274,6 +287,7 @@ let step (m:mach) : unit =
   let increment_stack_pointer = fun () -> increment_stack_pointer m in
   let decrement_program_counter = fun () -> decrement_program_counter m in
   let increment_program_counter = fun () -> increment_program_counter m in
+  let perform_arithmetic_instruction = perform_arithmetic_instruction m in
   let rip = (Array.get  m.regs (rind Rip)) in
   let opt_addr = (map_addr rip) in
   begin match opt_addr with
@@ -338,79 +352,35 @@ let step (m:mach) : unit =
           write dest addr_sbytes
       )
       | Incq ->
-         begin match operands with
-         | dest::[] -> (
-           let d64 = int64_of_sbytes (read dest) in
-           let s64 = 1L in
-           let r64 = Int64.add d64 s64 in
-           if (d64 < 0L && s64 < 0L && r64 > 0L) || (d64 > 0L && s64 > 0L && r64 < 0L) then
-             m.flags.fo <- true
-           else
-             m.flags.fo <- false;
-           write dest (sbytes_of_int64 r64);
-           update_fs_and_fz_flags r64;
-         )
-         | _ -> raise OperandError
-         end
+        begin match operands with
+        | dest::[] ->
+          perform_arithmetic_instruction Int64.add (Imm (Lit 1L)) dest (fun s64 d64 r64 -> (d64 < 0L && s64 < 0L && r64 > 0L) || (d64 > 0L && s64 > 0L && r64 < 0L))
+        | _ -> raise OperandError
+        end
       | Decq ->
-         begin match operands with
-         | dest::[] -> (
-           let d64 = int64_of_sbytes (read dest) in
-           let s64 = 1L in
-           let r64 = Int64.sub d64 s64 in
-           if (s64 = Int64.min_int) || (d64 < 0L && (Int64.sub 0L s64) < 0L && r64 > 0L) || (d64 > 0L && (Int64.sub 0L  s64) > 0L && r64 < 0L) then
-             m.flags.fo <- true
-           else
-             m.flags.fo <- false;
-           write dest (sbytes_of_int64 r64);
-           update_fs_and_fz_flags r64;
-         )
-         | _ -> raise OperandError
-         end
+        begin match operands with
+        | dest::[] -> 
+          perform_arithmetic_instruction Int64.sub (Imm (Lit 1L)) dest (fun s64 d64 r64 -> (d64 < 0L && (Int64.sub 0L s64) < 0L && r64 > 0L) || (d64 > 0L && (Int64.sub 0L  s64) > 0L && r64 < 0L))
+        | _ -> raise OperandError
+        end
       | Addq ->
-         begin match operands with
-         | src::dest::[] -> (
-           let d64 = int64_of_sbytes (read dest) in
-           let s64 = int64_of_sbytes (read src) in
-           let r64 = Int64.add d64 s64 in
-           if (d64 < 0L && s64 < 0L && r64 > 0L) || (d64 > 0L && s64 > 0L && r64 < 0L) then
-             m.flags.fo <- true
-           else
-             m.flags.fo <- false;
-           write dest (sbytes_of_int64 r64);
-           update_fs_and_fz_flags r64;
-         )
-         | _ -> raise OperandError
-         end
+        begin match operands with
+        | src::dest::[] -> 
+          perform_arithmetic_instruction Int64.add src dest (fun s64 d64 r64 -> (d64 < 0L && s64 < 0L && r64 > 0L) || (d64 > 0L && s64 > 0L && r64 < 0L))
+        | _ -> raise OperandError
+        end
       | Subq ->
-         begin match operands with
-         | src::dest::[] -> (
-           let d64 = int64_of_sbytes (read dest) in
-           let s64 = int64_of_sbytes (read src) in
-           let r64 = Int64.sub d64 s64 in
-           if (s64 = Int64.min_int) || (d64 < 0L && (Int64.sub 0L s64) < 0L && r64 > 0L) || (d64 > 0L && (Int64.sub 0L  s64) > 0L && r64 < 0L) then
-             m.flags.fo <- true
-           else
-             m.flags.fo <- false;
-           write dest (sbytes_of_int64 r64);
-           update_fs_and_fz_flags r64;
-         )
-         | _ -> raise OperandError
-         end
+        begin match operands with
+        | src::dest::[] ->
+          perform_arithmetic_instruction Int64.sub src dest (fun s64 d64 r64 -> (d64 < 0L && (Int64.sub 0L s64) < 0L && r64 > 0L) || (d64 > 0L && (Int64.sub 0L  s64) > 0L && r64 < 0L))
+        | _ -> raise OperandError
+        end
       | Imulq ->
-         begin match operands with
-         | src::dest::[] -> (
-           let d64 = int64_of_sbytes (read dest) in
-           let s64 = int64_of_sbytes (read src) in
-           let r64 = Int64.mul d64 s64 in (* Note that (-(2^63)) * -1 overflows. *)
-           if (s64 = 0L  || d64 = 0L) || ((not (s64 = -1L && d64 = -0x80000000L)) && s64 = (Int64.div r64 d64)) then
-             m.flags.fo <- false
-           else
-             m.flags.fo <- true;
-           write dest (sbytes_of_int64 r64);
-         )
-         | _ -> raise OperandError
-         end
+        begin match operands with
+        | src::dest::[] ->
+          perform_arithmetic_instruction Int64.mul src dest (fun s64 d64 r64 -> not ((s64 = 0L  || d64 = 0L) || ((not (s64 = -1L && d64 = -0x80000000L)) && s64 = (Int64.div r64 d64))))
+        | _ -> raise OperandError
+        end
       | Jmp ->
          begin match operands with
          | src::[] -> (
