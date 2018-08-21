@@ -253,10 +253,6 @@ let decrement_stack_pointer m =
 let increment_program_counter m =
   m.regs.(rind Rip) <- Int64.add (m.regs.(rind Rip)) 8L
 
-let decrement_program_counter m =
-  m.regs.(rind Rip) <- Int64.sub (m.regs.(rind Rip)) 8L
-
-
 let perform_arithmetic_instruction = fun m op src dest overflow_cond ->
   let read = read_from_addr m in
   let write = write_to_addr m in
@@ -316,13 +312,13 @@ let step (m:mach) : unit =
   let update_fs_and_fz_flags = update_fs_and_fz_flags m in
   let decrement_stack_pointer = fun () -> decrement_stack_pointer m in
   let increment_stack_pointer = fun () -> increment_stack_pointer m in
-  let decrement_program_counter = fun () -> decrement_program_counter m in
   let increment_program_counter = fun () -> increment_program_counter m in
   let perform_arithmetic_instruction = perform_arithmetic_instruction m in
   let perform_logical_instruction = perform_logical_instruction m in
   let perform_shift_instruction = perform_shift_instruction m in
   let rip = (Array.get  m.regs (rind Rip)) in
   let opt_addr = (map_addr rip) in
+  let fallthrough_predicate = ref false in
   begin match opt_addr with
   | None -> () (* TODO: Check termination condition *)
   | Some(addr) -> (
@@ -418,8 +414,8 @@ let step (m:mach) : unit =
         begin match operands with
         | src::[] -> (
           let src_int64 = int64_of_sbytes (read src) in
-          m.regs.(rind Rip) <- src_int64; (* Compensates for last line of step function. *)
-          decrement_program_counter();
+          m.regs.(rind Rip) <- src_int64;
+          fallthrough_predicate := true;
         )
         | _ -> raise OperandError
         end
@@ -428,8 +424,8 @@ let step (m:mach) : unit =
         | src::[] ->
           if interp_cnd m.flags cnd then
             let src_int64 = int64_of_sbytes (read src) in
-            m.regs.(rind Rip) <- src_int64; (* Compensates for last line of step function. *)
-            decrement_program_counter();
+            m.regs.(rind Rip) <- src_int64;
+            fallthrough_predicate := true;
         | _ -> raise OperandError
         end
       | Cmpq ->
@@ -454,8 +450,8 @@ let step (m:mach) : unit =
           let rip_sbytes = read (Reg Rip) in
           write (Ind2 Rsp) rip_sbytes;
           let src_int64 = int64_of_sbytes (read src) in
-          m.regs.(rind Rip) <- src_int64; (* Compensates for last line of step function. *)
-          decrement_program_counter();
+          m.regs.(rind Rip) <- src_int64;
+          fallthrough_predicate := true;
         )
         | _ -> raise OperandError
         end 
@@ -536,7 +532,8 @@ let step (m:mach) : unit =
         end
   )
   end;
-  increment_program_counter()
+  if not !fallthrough_predicate then
+    increment_program_counter()
 
 
 (* Runs the machine until the rip register reaches a designated
