@@ -321,29 +321,22 @@ let step (m:mach) : unit =
       | Popq ->
          begin match operands with
          | dest::[] -> (
-           let top_of_stack_data = read (Ind2 Rsp) in
-           write dest top_of_stack_data;
+           let top_of_stack_sbytes = read (Ind2 Rsp) in
+           write dest top_of_stack_sbytes;
            decrement_stack_pointer();
          )
          | _ -> raise OperandError
          end
-      | Leaq ->
-         begin match operands with
-         | ind::dest::[] ->
-            begin match ind with
-            | Ind1 Lit quad ->
-               let addr_sbytes = sbytes_of_int64 quad in
-               write dest addr_sbytes;
-            | Ind2 reg ->
-               let addr_sbytes = sbytes_of_int64 (reg_val m reg) in
-               write dest addr_sbytes;
-            | Ind3 (Lit offset, reg) ->
-               let addr_sbytes = sbytes_of_int64 (Int64.add (reg_val m reg) offset) in
-               write dest addr_sbytes;
-            | _ -> raise OperandError
-            end
-         | _ -> raise OperandError
-         end
+      | Leaq -> (
+        let (addr_sbytes, dest) = begin match operands with
+        | (Ind1 Lit quad)::dest::[] -> (sbytes_of_int64 quad, dest)
+        | (Ind2 reg)::dest::[] -> (sbytes_of_int64 (reg_val m reg), dest)
+        | (Ind3 (Lit offset, reg))::dest::[] -> (sbytes_of_int64 (Int64.add (reg_val m reg) offset), dest)
+        | _ -> raise OperandError
+        end
+        in
+          write dest addr_sbytes
+      )
       | Incq ->
          begin match operands with
          | dest::[] -> (
