@@ -592,14 +592,13 @@ let text_label_index_map = fun p ->
   match (List.fold_left aux ([], 0) p) with
   | (map, _) -> map
 
+let rec data_size data_list count =
+  match data_list with
+  | (Asciz(s))::tail -> data_size tail (count + ((String.length s) + 1))
+  | (Quad(q))::tail -> data_size tail (count + 8)
+  | _ -> count
+
 let data_segment_size p =
-  let rec data_size data_list count =
-    begin match data_list with
-    | (Asciz(s))::tail -> data_size tail (count + ((String.length s) + 1))
-    | (Quad(q))::tail -> data_size tail (count + 8)
-    | _ -> count
-    end
-  in
   let aux = fun count elm ->
     match elm.asm with
     | Data(data) -> data_size data 0
@@ -607,7 +606,18 @@ let data_segment_size p =
   in
   List.fold_left aux 0 p
 
-              
+let data_label_index_map = fun p ->
+  let aux = fun (map, curr_index) elm ->
+    match elm.asm with
+    | Data(data) -> (
+      (elm.lbl, curr_index)::map,
+      curr_index + (data_size data 0)
+    )
+    | _ -> (map, curr_index)
+  in
+  match (List.fold_left aux ([], 0) p) with
+  | (map, _) -> map
+
 let assemble (p:prog) : exec =
   failwith "assemble unimplemented"
 
