@@ -571,6 +571,15 @@ exception Redefined_sym of lbl
 
   HINT: List.fold_left and List.fold_right are your friends.
  *)
+
+let text_segment_size = fun p ->
+  let aux = fun count elm ->
+    match elm with
+    | Text(ins) -> count + (List.length ins) * 8
+    | _ -> count
+  in
+  List.fold_left aux 0 p
+
 let assemble (p:prog) : exec =
 failwith "assemble unimplemented"
 
