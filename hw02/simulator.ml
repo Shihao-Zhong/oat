@@ -592,8 +592,24 @@ let text_label_index_map = fun p ->
   match (List.fold_left aux ([], 0) p) with
   | (map, _) -> map
 
+let data_segment_size p =
+  let rec data_size data_list count =
+    begin match data_list with
+    | (Asciz(s))::tail -> data_size tail (count + ((String.length s) + 1))
+    | (Quad(q))::tail -> data_size tail (count + 8)
+    | _ -> count
+    end
+  in
+  let aux = fun count elm ->
+    match elm.asm with
+    | Data(data) -> data_size data 0
+    | _ -> count
+  in
+  List.fold_left aux 0 p
+
+              
 let assemble (p:prog) : exec =
-failwith "assemble unimplemented"
+  failwith "assemble unimplemented"
 
 (* Convert an object file into an executable machine state. 
     - allocate the mem array
