@@ -574,11 +574,23 @@ exception Redefined_sym of lbl
 
 let text_segment_size = fun p ->
   let aux = fun count elm ->
-    match elm with
+    match elm.asm with
     | Text(ins) -> count + (List.length ins) * 8
     | _ -> count
   in
   List.fold_left aux 0 p
+
+let text_label_index_map = fun p ->
+  let aux = fun (map, curr_index) elm ->
+    match elm.asm with
+    | Text(ins) -> (
+      (elm.lbl, curr_index)::map,
+      curr_index + (List.length ins) * 8
+    )
+    | _ -> (map, curr_index)
+  in
+  match (List.fold_left aux ([], 0) p) with
+  | (map, _) -> map
 
 let assemble (p:prog) : exec =
 failwith "assemble unimplemented"
