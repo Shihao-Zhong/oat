@@ -632,6 +632,18 @@ let labels_are_unique p =
   in
     aux p SS.empty
 
+let split_text_and_data (p:prog) =
+  let rec aux = fun p text data ->
+    match p with
+    | hd::tail ->
+      begin match hd.asm with
+      | Text(_) -> aux tail (hd::text) data
+      | Data(_) -> aux tail text (hd::data)
+      end
+    | [] -> (text, data)
+  in
+    aux p [] []
+
 let assemble (p:prog) : exec =
   failwith "assemble unimplemented"
 
