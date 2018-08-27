@@ -618,6 +618,20 @@ let data_label_index_map = fun p ->
   match (List.fold_left aux ([], 0) p) with
   | (map, _) -> map
 
+module SS = Set.Make(String)
+
+let labels_are_unique p =
+  let rec aux = fun p s ->
+    match p with
+    | hd::tail when SS.mem hd.lbl s -> false
+    | hd::tail -> (
+      let s = SS.add hd.lbl s in
+      aux tail s
+    )
+    | _ -> true 
+  in
+    aux p SS.empty
+
 let assemble (p:prog) : exec =
   failwith "assemble unimplemented"
 
