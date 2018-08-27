@@ -633,6 +633,33 @@ let rec entry_address = fun label_index_map  ->
   | _::tail -> entry_address tail 
   | [] -> raise (Undefined_sym "main")
 
+let rec label_index = fun label_index_map label ->
+  match label_index_map with
+  | (key, index)::_ when key = label -> index
+  | _::tail -> label_index tail label
+  | [] -> raise (Undefined_sym label)
+
+let rec resolve_operands_labels = fun operands label_index_map ->
+  let resolve_opreand_label operand =
+    match operand with
+    | Imm(Lbl(lbl)) -> Imm(Lit(label_index label_index_map lbl))
+    | Ind1(Lbl(lbl)) -> Ind1(Lit(label_index label_index_map lbl))
+    | Ind3(Lbl(lbl), reg) -> Ind3(Lit(label_index label_index_map lbl), reg)
+    | _ -> operand
+  in
+  List.map resolve_opreand_label operands 
+
+let resolve_instruction_labels = fun instructions label_index_map ->
+  let rec apply = fun instructions acc ->
+    match instructions with
+    | (opcode, operands)::tail -> (
+      let resolved_operands = resolve_operands_labels operands label_index_map in
+      apply tail ((opcode, resolved_operands)::acc)
+    )
+    | [] -> List.rev acc
+  in
+    apply instructions []
+
 let assemble (p:prog) : exec =
   let () = labels_are_unique p in
   let (text_seg, data_seg) = split_text_and_data p in
