@@ -588,7 +588,7 @@ let segment_size = fun p ->
   in
   List.fold_left aux 0 p
 
-let label_index_map = fun p ->
+let segment_label_index_map = fun p start_index ->
   let aux = fun (map, curr_index) elm ->
     match elm.asm with
     | Text(ins) -> (
@@ -600,22 +600,22 @@ let label_index_map = fun p ->
       curr_index + (data_size data 0)
     )
   in
-  match (List.fold_left aux ([], 0) p) with
+  match (List.fold_left aux ([], start_index) p) with
   | (map, _) -> map
 
 let labels_are_unique p =
   let rec aux = fun p s ->
     match p with
-    | hd::tail when SS.mem hd.lbl s -> false
+    | hd::tail when SS.mem hd.lbl s -> raise (Redefined_sym hd.lbl)
     | hd::tail -> (
       let s = SS.add hd.lbl s in
       aux tail s
     )
-    | _ -> true 
+    | _ -> () 
   in
     aux p SS.empty
 
-let split_text_and_data (p:prog) =
+let split_text_and_data p =
   let rec aux = fun p text data ->
     match p with
     | hd::tail ->
@@ -628,6 +628,14 @@ let split_text_and_data (p:prog) =
     aux p [] []
 
 let assemble (p:prog) : exec =
+  let () = labels_are_unique p in
+  let (text_seg, data_seg) = split_text_and_data p in
+  let text_seg_size = segment_size text_seg in
+  let data_seg_size = segment_size data_seg in
+  let program_size = text_seg_size + data_seg_size in
+  let text_label_index_map = segment_label_index_map text_seg 0 in
+  let data_laebl_index_map = segment_label_index_map data_seg text_seg_size in
+  let label_index_map = text_label_index_map @ data_laebl_index_map in
   failwith "assemble unimplemented"
 
 (* Convert an object file into an executable machine state. 
