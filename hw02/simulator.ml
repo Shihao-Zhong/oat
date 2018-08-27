@@ -627,6 +627,12 @@ let split_text_and_data p =
   in
     aux p [] []
 
+let rec entry_address = fun label_index_map  ->
+  match label_index_map with
+  | (label, address)::tail when label = "main" -> address
+  | _::tail -> entry_address tail 
+  | [] -> raise (Undefined_sym "main")
+
 let assemble (p:prog) : exec =
   let () = labels_are_unique p in
   let (text_seg, data_seg) = split_text_and_data p in
