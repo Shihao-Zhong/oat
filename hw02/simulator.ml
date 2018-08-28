@@ -635,7 +635,7 @@ let rec entry_address = fun label_index_map  ->
 
 let rec label_index = fun label_index_map label ->
   match label_index_map with
-  | (key, index)::_ when key = label -> index
+  | (key, index)::_ when key = label -> Int64.of_int index
   | _::tail -> label_index tail label
   | [] -> raise (Undefined_sym label)
 
@@ -656,9 +656,21 @@ let resolve_instruction_labels = fun instructions label_index_map ->
       let resolved_operands = resolve_operands_labels operands label_index_map in
       apply tail ((opcode, resolved_operands)::acc)
     )
-    | [] -> List.rev acc
+    | [] -> Text (List.rev acc)
   in
     apply instructions []
+
+let resolve_text_segment_labels = fun text label_index_map ->
+  let aux = fun element ->
+    match element.asm with
+    | Text(instructions) -> {
+      lbl = element.lbl;
+      global = element.global;
+      asm = resolve_instruction_labels instructions label_index_map;
+    }
+    | _ -> failwith "unexpected data segment"
+  in
+    List.map aux text 
 
 let assemble (p:prog) : exec =
   let () = labels_are_unique p in
@@ -669,6 +681,7 @@ let assemble (p:prog) : exec =
   let text_label_index_map = segment_label_index_map text_seg 0 in
   let data_laebl_index_map = segment_label_index_map data_seg text_seg_size in
   let label_index_map = text_label_index_map @ data_laebl_index_map in
+  let resolved_text_segment = resolve_text_segment_labels text_seg label_index_map in
   failwith "assemble unimplemented"
 
 (* Convert an object file into an executable machine state. 
