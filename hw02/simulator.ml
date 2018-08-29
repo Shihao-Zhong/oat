@@ -670,7 +670,7 @@ let resolve_text_segment_labels = fun text label_index_map ->
     }
     | _ -> failwith "unexpected data segment"
   in
-    List.map aux text 
+    List.map aux text
 
 let assemble (p:prog) : exec =
   let () = labels_are_unique p in
@@ -679,9 +679,10 @@ let assemble (p:prog) : exec =
   let data_seg_size = segment_size data_seg in
   let program_size = text_seg_size + data_seg_size in
   let text_label_index_map = segment_label_index_map text_seg 0 in
-  let data_laebl_index_map = segment_label_index_map data_seg text_seg_size in
-  let label_index_map = text_label_index_map @ data_laebl_index_map in
+  let data_label_index_map = segment_label_index_map data_seg text_seg_size in
+  let label_index_map = text_label_index_map @ data_label_index_map in
   let resolved_text_segment = resolve_text_segment_labels text_seg label_index_map in
+  let entry = label_index text_label_index_map "main" in
   failwith "assemble unimplemented"
 
 (* Convert an object file into an executable machine state. 
