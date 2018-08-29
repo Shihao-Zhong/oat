@@ -654,8 +654,13 @@ let resolve_labels_in_instructions = fun label_index_map instructions ->
   let resolve_labels = resolve_labels_in_operands label_index_map in
   List.map (fun (opcode, operands) -> (opcode, resolve_labels operands)) instructions
 
-let resolve_labels_in_data = fun label_index_map data ->
-  data
+let resolve_labels_in_data = fun label_index_map data_list ->
+  let aux = fun data ->
+    match data with
+    | Quad(Lbl(lbl)) -> Quad(Lit(label_index label_index_map lbl))
+    | _ -> data
+  in
+    List.map aux data_list
 
 let resolve_labels_in_program = fun label_index_map p ->
   let resolve_labels_in_instructions = resolve_labels_in_instructions label_index_map in
