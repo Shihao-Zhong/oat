@@ -572,72 +572,71 @@ exception Redefined_sym of lbl
   HINT: List.fold_left and List.fold_right are your friends.
  *)
 
+(* Ensure all the labels are unique *)
 module SS = Set.Make(String)
 
-let rec data_size data_list count =
-  match data_list with
-  | (Asciz(s))::tail -> data_size tail (count + ((String.length s) + 1))
-  | (Quad(q))::tail -> data_size tail (count + 8)
-  | _ -> count
-
-let segment_size = fun p ->
-  let aux = fun count elm ->
-    match elm.asm with
-    | Text(ins) -> count + (List.length ins) * 8
-    | Data(data) -> data_size data 0
-  in
-  List.fold_left aux 0 p
-
-let segment_label_index_map = fun p start_index ->
-  let aux = fun (map, curr_index) elm ->
-    match elm.asm with
-    | Text(ins) -> (
-      (elm.lbl, curr_index)::map,
-      curr_index + (List.length ins) * 8
-    )
-    | Data(data) -> (
-      (elm.lbl, curr_index)::map,
-      curr_index + (data_size data 0)
-    )
-  in
-  match (List.fold_left aux ([], start_index) p) with
-  | (map, _) -> map
-
-let labels_are_unique p =
-  let rec aux = fun p s ->
+let assert_labels_are_unique p =
+  let rec aux = fun p label_set ->
     match p with
-    | hd::tail when SS.mem hd.lbl s -> raise (Redefined_sym hd.lbl)
-    | hd::tail -> (
-      let s = SS.add hd.lbl s in
-      aux tail s
-    )
+    | hd::tail when SS.mem hd.lbl label_set -> raise (Redefined_sym hd.lbl)
+    | hd::tail -> aux tail (SS.add hd.lbl label_set)
     | _ -> () 
   in
     aux p SS.empty
 
+(* Calculate the size of each construct in number of sybtes required to represent it *)
+let quad_size = 8
+
+let data_size data =
+  match data with
+  | Asciz(s) -> (String.length s) + 1
+  | Quad(_) -> quad_size
+
+let instruction_size = 8
+
+let asm_size asm =
+  match asm with
+  | Text(instructions) -> (List.length instructions) * instruction_size
+  | Data(data_list) -> List.fold_left (fun curr_size data -> curr_size + (data_size data)) 0 data_list
+
+let elem_size elm = asm_size elm.asm
+
+let program_size p =
+  List.fold_left (fun curr_size elm -> curr_size + (elem_size elm)) 0 p
+
+(* Generate a label index map *)
+let generate_label_index_map = fun p start_index ->
+  let aux = fun (map, curr_index) elm ->
+    let map = (elm.lbl, curr_index)::map in
+    let curr_index = curr_index + elem_size elm in
+    (map, curr_index)
+  in
+  let (label_index_map, _) = List.fold_left aux ([], start_index) p in
+  label_index_map
+
+(* split text and data of a program *)
 let split_text_and_data p =
   let rec aux = fun p text data ->
     match p with
-    | hd::tail ->
-      begin match hd.asm with
+    | hd::tail -> (
+      match hd.asm with
       | Text(_) -> aux tail (hd::text) data
       | Data(_) -> aux tail text (hd::data)
-      end
+    )
     | [] -> (text, data)
   in
     aux p [] []
 
-let rec entry_address = fun label_index_map  ->
-  match label_index_map with
-  | (label, address)::tail when label = "main" -> address
-  | _::tail -> entry_address tail 
-  | [] -> raise (Undefined_sym "main")
+(* Entry point *)
+let label_index = fun label_index_map label ->
+  let rec aux = fun map ->
+    match map with
+    | (key, index)::_ when key = label -> Int64.of_int index
+    | _::tail -> aux tail
+    | [] -> raise (Undefined_sym label)
+  in aux label_index_map
 
-let rec label_index = fun label_index_map label ->
-  match label_index_map with
-  | (key, index)::_ when key = label -> Int64.of_int index
-  | _::tail -> label_index tail label
-  | [] -> raise (Undefined_sym label)
+let entry_address label_index_map = label_index label_index_map "main"
 
 let rec resolve_operands_labels = fun operands label_index_map ->
   let resolve_opreand_label operand =
@@ -673,13 +672,13 @@ let resolve_text_segment_labels = fun text label_index_map ->
     List.map aux text
 
 let assemble (p:prog) : exec =
-  let () = labels_are_unique p in
+  let () = assert_labels_are_unique p in
   let (text_seg, data_seg) = split_text_and_data p in
-  let text_seg_size = segment_size text_seg in
-  let data_seg_size = segment_size data_seg in
+  let text_seg_size = program_size text_seg in
+  let data_seg_size = program_size data_seg in
   let program_size = text_seg_size + data_seg_size in
-  let text_label_index_map = segment_label_index_map text_seg 0 in
-  let data_label_index_map = segment_label_index_map data_seg text_seg_size in
+  let text_label_index_map = generate_label_index_map text_seg 0 in
+  let data_label_index_map = generate_label_index_map data_seg text_seg_size in
   let label_index_map = text_label_index_map @ data_label_index_map in
   let resolved_text_segment = resolve_text_segment_labels text_seg label_index_map in
   let entry = label_index text_label_index_map "main" in
