@@ -682,6 +682,21 @@ let sbytes_of_program = fun p ->
   let asms = List.map (fun e -> e.asm) p in
   List.flatten (List.map aux asms)
 
+(* print for debugging *)
+let string_of_ins_sbytes = fun sbytes ->
+  let predicate sbyte = 
+    match sbyte with
+    | InsB0(ins) -> true
+    | _ -> false
+  in 
+  let sbyte_to_string sbyte =
+    match sbyte with
+    | InsB0(ins) -> string_of_ins ins
+    | _ -> ""
+  in
+  let ins_strings = (List.filter predicate sbytes) |> (List.map sbyte_to_string) in
+  List.iter (fun s -> print_endline s) ins_strings
+
 let assemble (p:prog) : exec =
   let () = assert_labels_are_unique p in
   let (text_seg, data_seg) = split_text_and_data p in
@@ -698,6 +713,8 @@ let assemble (p:prog) : exec =
   let entry = entry_address text_label_index_map in
   let text_sbytes = sbytes_of_program resolved_text_segment in
   let data_sbytes = sbytes_of_program resolved_data_segment in
+  begin
+  string_of_ins_sbytes text_sbytes;
   {
     entry = entry
   ; text_pos = text_pos
@@ -705,6 +722,7 @@ let assemble (p:prog) : exec =
   ; text_seg = text_sbytes
   ; data_seg = data_sbytes
   }
+  end
 
 (* Convert an object file into an executable machine state. 
     - allocate the mem array
