@@ -606,9 +606,10 @@ let program_size p =
 
 (* Generate a label index map *)
 let generate_label_index_map = fun p start_index ->
+  let (+) = Int64.add in
   let aux = fun (map, curr_index) elm ->
     let map = (elm.lbl, curr_index)::map in
-    let curr_index = curr_index + elem_size elm in
+    let curr_index = curr_index + (Int64.of_int (elem_size elm)) in
     (map, curr_index)
   in
   let (label_index_map, _) = List.fold_left aux ([], start_index) p in
@@ -631,7 +632,7 @@ let split_text_and_data p =
 let label_index = fun label_index_map label ->
   let rec aux = fun map ->
     match map with
-    | (key, index)::_ when key = label -> Int64.of_int index
+    | (key, index)::_ when key = label -> index
     | _::tail -> aux tail
     | [] -> raise (Undefined_sym label)
   in aux label_index_map
@@ -684,11 +685,13 @@ let sbytes_of_program = fun p ->
 let assemble (p:prog) : exec =
   let () = assert_labels_are_unique p in
   let (text_seg, data_seg) = split_text_and_data p in
+  let text_pos = mem_bot in
   let text_seg_size = program_size text_seg in
+  let data_pos = Int64.add mem_bot (Int64.of_int text_seg_size) in
   let data_seg_size = program_size data_seg in
   let program_size = text_seg_size + data_seg_size in
-  let text_label_index_map = generate_label_index_map text_seg 0 in
-  let data_label_index_map = generate_label_index_map data_seg text_seg_size in
+  let text_label_index_map = generate_label_index_map text_seg text_pos in
+  let data_label_index_map = generate_label_index_map data_seg data_pos in
   let label_index_map = text_label_index_map @ data_label_index_map in
   let resolved_text_segment = resolve_labels_in_program label_index_map text_seg in
   let resolved_data_segment = resolve_labels_in_program label_index_map data_seg in
@@ -697,8 +700,8 @@ let assemble (p:prog) : exec =
   let data_sbytes = sbytes_of_program resolved_data_segment in
   {
     entry = entry
-  ; text_pos = Int64.zero
-  ; data_pos = Int64.of_int text_seg_size
+  ; text_pos = text_pos
+  ; data_pos = data_pos
   ; text_seg = text_sbytes
   ; data_seg = data_sbytes
   }
