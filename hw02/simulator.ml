@@ -672,6 +672,15 @@ let resolve_labels_in_program = fun label_index_map p ->
   in
     List.map aux p
 
+let sbytes_of_program = fun p ->
+  let aux asm =
+    match asm with
+    | Text(instructions) -> List.flatten (List.map sbytes_of_ins instructions)
+    | Data(data) -> List.flatten (List.map sbytes_of_data data)
+  in
+  let asms = List.map (fun e -> e.asm) p in
+  List.flatten (List.map aux asms)
+
 let assemble (p:prog) : exec =
   let () = assert_labels_are_unique p in
   let (text_seg, data_seg) = split_text_and_data p in
@@ -682,8 +691,17 @@ let assemble (p:prog) : exec =
   let data_label_index_map = generate_label_index_map data_seg text_seg_size in
   let label_index_map = text_label_index_map @ data_label_index_map in
   let resolved_text_segment = resolve_labels_in_program label_index_map text_seg in
-  let entry = label_index text_label_index_map "main" in
-  failwith "assemble unimplemented"
+  let resolved_data_segment = resolve_labels_in_program label_index_map data_seg in
+  let entry = entry_address text_label_index_map in
+  let text_sbytes = sbytes_of_program resolved_text_segment in
+  let data_sbytes = sbytes_of_program resolved_data_segment in
+  {
+    entry = entry
+  ; text_pos = Int64.zero
+  ; data_pos = Int64.of_int text_seg_size
+  ; text_seg = text_sbytes
+  ; data_seg = data_sbytes
+  }
 
 (* Convert an object file into an executable machine state. 
     - allocate the mem array
