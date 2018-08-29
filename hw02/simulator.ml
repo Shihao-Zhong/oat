@@ -638,38 +638,34 @@ let label_index = fun label_index_map label ->
 
 let entry_address label_index_map = label_index label_index_map "main"
 
-let rec resolve_operands_labels = fun operands label_index_map ->
+(* Resolve labels *)
+let resolve_labels_in_operands = fun label_index_map operands ->
+  let label_index = label_index label_index_map in
   let resolve_opreand_label operand =
     match operand with
-    | Imm(Lbl(lbl)) -> Imm(Lit(label_index label_index_map lbl))
-    | Ind1(Lbl(lbl)) -> Ind1(Lit(label_index label_index_map lbl))
-    | Ind3(Lbl(lbl), reg) -> Ind3(Lit(label_index label_index_map lbl), reg)
+    | Imm(Lbl(lbl)) -> Imm(Lit(label_index lbl))
+    | Ind1(Lbl(lbl)) -> Ind1(Lit(label_index lbl))
+    | Ind3(Lbl(lbl), reg) -> Ind3(Lit(label_index lbl), reg)
     | _ -> operand
   in
   List.map resolve_opreand_label operands 
 
-let resolve_instruction_labels = fun instructions label_index_map ->
-  let rec apply = fun instructions acc ->
-    match instructions with
-    | (opcode, operands)::tail -> (
-      let resolved_operands = resolve_operands_labels operands label_index_map in
-      apply tail ((opcode, resolved_operands)::acc)
-    )
-    | [] -> Text (List.rev acc)
-  in
-    apply instructions []
+let resolve_labels_in_instructions = fun label_index_map instructions ->
+  let resolve_labels = resolve_labels_in_operands label_index_map in
+  List.map (fun (opcode, operands) -> (opcode, resolve_labels operands)) instructions
 
-let resolve_text_segment_labels = fun text label_index_map ->
+let resolve_labels_in_data = fun label_index_map data ->
+  data
+
+let resolve_labels_in_program = fun label_index_map p ->
+  let resolve_labels_in_instructions = resolve_labels_in_instructions label_index_map in
+  let resolve_labels_in_data = resolve_labels_in_data label_index_map in
   let aux = fun element ->
     match element.asm with
-    | Text(instructions) -> {
-      lbl = element.lbl;
-      global = element.global;
-      asm = resolve_instruction_labels instructions label_index_map;
-    }
-    | _ -> failwith "unexpected data segment"
+    | Text(instructions) -> { element with asm = Text(resolve_labels_in_instructions instructions) }
+    | Data(data) -> { element with asm = Data(resolve_labels_in_data data) }
   in
-    List.map aux text
+    List.map aux p
 
 let assemble (p:prog) : exec =
   let () = assert_labels_are_unique p in
@@ -680,7 +676,7 @@ let assemble (p:prog) : exec =
   let text_label_index_map = generate_label_index_map text_seg 0 in
   let data_label_index_map = generate_label_index_map data_seg text_seg_size in
   let label_index_map = text_label_index_map @ data_label_index_map in
-  let resolved_text_segment = resolve_text_segment_labels text_seg label_index_map in
+  let resolved_text_segment = resolve_labels_in_program label_index_map text_seg in
   let entry = label_index text_label_index_map "main" in
   failwith "assemble unimplemented"
 
