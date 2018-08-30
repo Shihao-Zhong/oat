@@ -132,18 +132,18 @@ let string_of_shift op = function
   | [ Reg Rcx ; dst ] ->
     Printf.sprintf "\t%s\t%%cl, %s" (string_of_opcode op) (string_of_operand dst)
   | args -> failwith (Printf.sprintf "shift instruction has invalid operands: %s\n" 
-                     (map_concat ", " string_of_operand args))
-                   
+                        (map_concat ", " string_of_operand args))
+
 let string_of_ins (op, args: ins) : string =
   match op with
   | Shlq | Sarq | Shrq -> string_of_shift op args
   | _ ->
-  let f = match op with
-    | J _ | Jmp | Callq -> string_of_jmp_operand 
-    | Set _ -> string_of_byte_operand
-    | _ -> string_of_operand 
-  in
-  "\t" ^ string_of_opcode op ^ "\t" ^ map_concat ", " f args
+    let f = match op with
+      | J _ | Jmp | Callq -> string_of_jmp_operand 
+      | Set _ -> string_of_byte_operand
+      | _ -> string_of_operand 
+    in
+    "\t" ^ string_of_opcode op ^ "\t" ^ map_concat ", " f args
 
 let string_of_data : data -> string = function
   | Asciz s -> "\t.asciz\t" ^ "\"" ^ (String.escaped s) ^ "\""
