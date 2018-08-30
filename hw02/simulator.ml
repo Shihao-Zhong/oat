@@ -624,7 +624,7 @@ let split_text_and_data p =
       | Text(_) -> aux tail (hd::text) data
       | Data(_) -> aux tail text (hd::data)
     )
-    | [] -> (text, data)
+    | [] -> (List.rev text, List.rev data)
   in
     aux p [] []
 
@@ -713,8 +713,6 @@ let assemble (p:prog) : exec =
   let entry = entry_address text_label_index_map in
   let text_sbytes = sbytes_of_program resolved_text_segment in
   let data_sbytes = sbytes_of_program resolved_data_segment in
-  begin
-  string_of_ins_sbytes text_sbytes;
   {
     entry = entry
   ; text_pos = text_pos
@@ -722,7 +720,6 @@ let assemble (p:prog) : exec =
   ; text_seg = text_sbytes
   ; data_seg = data_sbytes
   }
-  end
 
 (* Convert an object file into an executable machine state. 
     - allocate the mem array
