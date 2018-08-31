@@ -733,4 +733,17 @@ let assemble (p:prog) : exec =
    may be of use.
 *)
 let load {entry; text_pos; data_pos; text_seg; data_seg} : mach = 
-  failwith "load unimplemented"
+  let mem = Array.make mem_size InsFrag in
+  let flags = {
+    fo = false; fs = false; fz = false;
+  } in
+  let regs = Array.make 17 Int64.zero in
+  begin
+    Array.set regs (rind Rip) entry;
+    Array.set regs (rind Rsp) mem_top;
+    {
+      mem = mem;
+      flags = flags;
+      regs = regs;
+    }
+  end
