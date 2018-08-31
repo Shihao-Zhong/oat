@@ -737,8 +737,8 @@ let init_mem {entry; text_pos; data_pos; text_seg; data_seg} : mem =
   let text_pos = Int64.to_int text_pos in
   let data_pos = Int64.to_int data_pos in
   begin
-    List.iteri (fun index sbyte -> Array.set mem (index + text_pos) sbyte) text_seg;
-    List.iteri (fun index sbyte -> Array.set mem (index + data_pos) sbyte) data_seg;
+    List.iteri (fun index sbyte -> Array.set mem (index + text_pos - (Int64.to_int mem_bot)) sbyte) text_seg;
+    List.iteri (fun index sbyte -> Array.set mem (index + data_pos - (Int64.to_int mem_bot)) sbyte) data_seg;
     List.iteri (fun ind sb -> Array.set mem ((Int64.to_int (Int64.sub (Int64.sub mem_top 8L) mem_bot)) + ind) sb) (sbytes_of_int64 exit_addr);
     mem
   end
