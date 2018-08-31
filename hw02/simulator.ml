@@ -461,9 +461,13 @@ let step (m:mach) : unit =
                 begin
                   let top_of_stack_sbytes = read (Ind2 Rsp) in
                   let top_of_stack_int64 = int64_of_sbytes top_of_stack_sbytes in
-                  let offsetted_top_of_stack_int64 = Int64.sub top_of_stack_int64 8L in (* Compensates for last line of step function. *)
-                  m.regs.(rind Rip) <- offsetted_top_of_stack_int64;
-                  decrement_stack_pointer();
+                  m.regs.(rind Rip) <- top_of_stack_int64;
+                  if m.regs.(rind Rip) = exit_addr then
+                    fallthrough_predicate := true (* exit_addr is at mem_top so decrement_stack_pointer
+                                                     call would result in an out of bounds exception when
+                                                     executing `read (Ind2 Rsp)` *)
+                  else
+                    decrement_stack_pointer();
                 end
               | _ -> raise OperandError
             end
@@ -733,7 +737,7 @@ let assemble (p:prog) : exec =
    may be of use.
 *)
 let init_mem {entry; text_pos; data_pos; text_seg; data_seg} : mem =
-  let mem = Array.make mem_size InsFrag in
+  let mem = Array.make mem_size (Byte (Char.chr 0)) in
   let text_pos = Int64.to_int text_pos in
   let data_pos = Int64.to_int data_pos in
   begin
