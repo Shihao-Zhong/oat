@@ -732,15 +732,27 @@ let assemble (p:prog) : exec =
    Hint: The Array.make, Array.blit, and Array.of_list library functions 
    may be of use.
 *)
-let load {entry; text_pos; data_pos; text_seg; data_seg} : mach = 
+let init_mem {entry; text_pos; data_pos; text_seg; data_seg} : mem =
   let mem = Array.make mem_size InsFrag in
+  let text_pos = Int64.to_int text_pos in
+  let data_pos = Int64.to_int data_pos in
+  begin
+    List.iteri (fun index sbyte -> Array.set mem (index + text_pos) sbyte) text_seg;
+    List.iteri (fun index sbyte -> Array.set mem (index + data_pos) sbyte) data_seg;
+    List.iteri (fun ind sb -> Array.set mem ((Int64.to_int (Int64.sub (Int64.sub mem_top 8L) mem_bot)) + ind) sb) (sbytes_of_int64 exit_addr);
+    mem
+  end
+
+
+let load {entry; text_pos; data_pos; text_seg; data_seg} : mach = 
+  let mem = init_mem {entry; text_pos; data_pos; text_seg; data_seg} in
   let flags = {
     fo = false; fs = false; fz = false;
   } in
   let regs = Array.make 17 Int64.zero in
   begin
     Array.set regs (rind Rip) entry;
-    Array.set regs (rind Rsp) mem_top;
+    Array.set regs (rind Rsp) (Int64.sub mem_top 8L);
     {
       mem = mem;
       flags = flags;
