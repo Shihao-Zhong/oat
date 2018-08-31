@@ -1,0 +1,107 @@
+struct Node {
+  int item;
+  Node? next
+}
+
+Node insert (int v, Node? head) {
+  var new_node = new Node{item = v; next = head}; 
+  return new_node; 
+}
+
+void sneaky_insert(int v, Node? l) {
+  var new_node = new Node{item = v; next = Node null};
+  if?(Node n = l) {
+    n.next = new_node;
+  }
+  return;
+}
+
+
+void copy(Node? src, Node? dst) {
+  if?(Node srcl = src) {
+    if?(Node dstl = dst) {
+      dstl.item = srcl.item;
+      copy(srcl.next, dstl.next);
+    } 
+  }
+  return;
+}
+
+int list_length(Node? l) {
+  if?(Node n = l) {
+    return list_length(n.next) + 1;
+  }
+  return 0;
+}
+
+Node? reverse1(Node? l) {
+  var head = Node null;
+  var len = list_length(l);
+  var curr = l;
+
+  for(var i = 0; i < len; i = i + 1;) {
+    if?(Node n = curr) {
+      head = insert(n.item, head);
+      curr = n.next;
+    }
+  }
+  return head;
+}
+
+Node? reverse2(Node? l) {
+  var head = Node null;
+  var len = list_length(l);
+  var curr = l;
+
+  for(var i = 0; i < len; i = i + 1;) {
+    if?(Node n = curr) {
+      head = new Node{item = n.item; next = head};
+      curr = n.next;
+    }
+  }
+  return head;
+}
+
+void reverse_in_place(Node? l) {
+  var head = Node null;
+  var len = list_length(l);
+  var curr = l;
+
+  for(var i = 0; i < len; i = i + 1;) {
+    if?(Node n = curr) {
+      head = new Node{item = n.item; next = head};
+      curr = n.next;
+    }
+  }
+
+  var src = head;
+  var dst = l;
+  
+  for(var i = 0; i < len; i = i + 1;) {
+    if?(Node s = src) {
+      if?(Node d = dst) { 
+        d.item = s.item;
+        dst = d.next;    
+        src = s.next;
+      }
+    }
+  }
+  
+  return;
+}
+
+
+int program(int argc, string[] argv) {
+  var hd = Node null; 
+  hd = insert(11, hd); 
+  hd = insert(12, hd); 
+  hd = insert(13, hd); 
+  hd = insert(14, hd); 
+  hd = insert(15, hd);
+
+  reverse_in_place(hd);
+  if?(Node n = hd) {
+    return n.item;
+  }
+  return 0;  
+}
