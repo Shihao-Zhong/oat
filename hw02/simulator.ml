@@ -136,8 +136,8 @@ let sbytes_of_data : data -> sbyte list = function
 let debug_simulator = ref false
 
 (* Interpret a condition code with respect to the given flags. *)
-let interp_cnd {fo; fs; fz} : cnd -> bool = fun x ->
-  match x with
+let interp_cnd {fo; fs; fz} : cnd -> bool =
+  function
   | Eq -> fz
   | Neq -> not fz
   | Gt -> not ((fo != fs) || fz )
@@ -591,15 +591,15 @@ let assert_labels_are_unique p =
 (* Calculate the size of each construct in number of sybtes required to represent it *)
 let quad_size = 8
 
-let data_size data =
-  match data with
+let data_size =
+  function
   | Asciz(s) -> (String.length s) + 1
   | Quad(_) -> quad_size
 
 let instruction_size = 8
 
-let asm_size asm =
-  match asm with
+let asm_size =
+  function
   | Text(instructions) -> (List.length instructions) * instruction_size
   | Data(data_list) -> List.fold_left (fun curr_size data -> curr_size + (data_size data)) 0 data_list
 
@@ -634,8 +634,8 @@ let split_text_and_data p =
 
 (* Entry point *)
 let label_index = fun label_index_map label ->
-  let rec aux = fun map ->
-    match map with
+  let rec aux =
+    function
     | (key, index)::_ when key = label -> index
     | _::tail -> aux tail
     | [] -> raise (Undefined_sym label)
@@ -646,12 +646,12 @@ let entry_address label_index_map = label_index label_index_map "main"
 (* Resolve labels *)
 let resolve_labels_in_operands = fun label_index_map operands ->
   let label_index = label_index label_index_map in
-  let resolve_opreand_label operand =
-    match operand with
+  let resolve_opreand_label =
+    function
     | Imm(Lbl(lbl)) -> Imm(Lit(label_index lbl))
     | Ind1(Lbl(lbl)) -> Ind1(Lit(label_index lbl))
     | Ind3(Lbl(lbl), reg) -> Ind3(Lit(label_index lbl), reg)
-    | _ -> operand
+    | operand -> operand
   in
   List.map resolve_opreand_label operands 
 
@@ -660,10 +660,10 @@ let resolve_labels_in_instructions = fun label_index_map instructions ->
   List.map (fun (opcode, operands) -> (opcode, resolve_labels operands)) instructions
 
 let resolve_labels_in_data = fun label_index_map data_list ->
-  let aux = fun data ->
-    match data with
+  let aux =
+    function
     | Quad(Lbl(lbl)) -> Quad(Lit(label_index label_index_map lbl))
-    | _ -> data
+    | data -> data
   in
   List.map aux data_list
 
@@ -678,8 +678,8 @@ let resolve_labels_in_program = fun label_index_map p ->
   List.map aux p
 
 let sbytes_of_program = fun p ->
-  let aux asm =
-    match asm with
+  let aux =
+    function
     | Text(instructions) -> List.flatten (List.map sbytes_of_ins instructions)
     | Data(data) -> List.flatten (List.map sbytes_of_data data)
   in
@@ -688,13 +688,13 @@ let sbytes_of_program = fun p ->
 
 (* print for debugging *)
 let string_of_ins_sbytes = fun sbytes ->
-  let predicate sbyte = 
-    match sbyte with
+  let predicate =
+    function
     | InsB0(ins) -> true
     | _ -> false
   in 
-  let sbyte_to_string sbyte =
-    match sbyte with
+  let sbyte_to_string =
+    function
     | InsB0(ins) -> string_of_ins ins
     | _ -> ""
   in
