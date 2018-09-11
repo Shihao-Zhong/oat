@@ -140,7 +140,7 @@ let compile_operand ctxt dest : Ll.operand -> ins =
      Your function should simply return 0 in those cases
 *)
 let rec size_ty tdecls t : int =
-failwith "size_ty not implemented"
+  failwith "size_ty not implemented"
 
 
 
@@ -163,7 +163,7 @@ failwith "size_ty not implemented"
 
      - if t is an array, the index can be any operand, and its
        value determines the offset within the array.
- 
+
      - if t is any other type, the path is invalid
 
    5. if the index is valid, the remainder of the path is computed as
@@ -171,7 +171,7 @@ failwith "size_ty not implemented"
       by the path so far
 *)
 let compile_gep ctxt (op : Ll.ty * Ll.operand) (path: Ll.operand list) : ins list =
-failwith "compile_gep not implemented"
+  failwith "compile_gep not implemented"
 
 
 
@@ -199,7 +199,7 @@ failwith "compile_gep not implemented"
    - Bitcast: does nothing interesting at the assembly level
 *)
 let compile_insn ctxt (uid, i) : X86.ins list =
-      failwith "compile_insn not implemented"
+  failwith "compile_insn not implemented"
 
 
 
@@ -241,7 +241,14 @@ let compile_lbl_block lbl ctxt blk : elem =
    [ NOTE: the first six arguments are numbered 0 .. 5 ]
 *)
 let arg_loc (n : int) : operand =
-failwith "arg_loc not implemented"
+  match n with
+  | 0 -> Reg(Rdi)
+  | 1 -> Reg(Rsi)
+  | 2 -> Reg(Rdx)
+  | 3 -> Reg(Rcx)
+  | 4 -> Reg(R08)
+  | 5 -> Reg(R09) (* R10 is used as a static chain pointer in case of nested functions *)
+  | n -> Ind3(Lit(Int64.of_int ((n - 5) * 8)), Rbp)
 
 
 (* We suggest that you create a helper function that computes the 
@@ -254,7 +261,7 @@ failwith "arg_loc not implemented"
 
 *)
 let stack_layout args (block, lbled_blocks) : layout =
-failwith "stack_layout not implemented"
+  failwith "stack_layout not implemented"
 
 (* The code for the entry-point of a function must do several things:
 
@@ -273,7 +280,7 @@ failwith "stack_layout not implemented"
      to hold all of the local stack slots.
 *)
 let compile_fdecl tdecls name { f_ty; f_param; f_cfg } =
-failwith "compile_fdecl unimplemented"
+  failwith "compile_fdecl unimplemented"
 
 
 
