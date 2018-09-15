@@ -260,7 +260,7 @@ let arg_loc (n : int) : operand =
    - see the discusion about locals 
 
 *)
-let stack_layout args (block, lbled_blocks) : layout =
+let stack_layout (args: uid list) ((block, lbled_blocks): cfg) : layout =
   failwith "stack_layout not implemented"
 
 (* The code for the entry-point of a function must do several things:
