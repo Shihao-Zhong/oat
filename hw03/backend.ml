@@ -89,7 +89,7 @@ let lookup m x = List.assoc x m
    the X86 instruction that moves an LLVM operand into a designated
    destination (usually a register).  
 *)
-let compile_operand ctxt dest : Ll.operand -> ins =
+let compile_operand (ctxt : ctxt) dest : Ll.operand -> ins =
   function _ -> failwith "compile_operand unimplemented"
 
 
@@ -170,7 +170,7 @@ let rec size_ty tdecls t : int =
       in (4), but relative to the type f the sub-element picked out
       by the path so far
 *)
-let compile_gep ctxt (op : Ll.ty * Ll.operand) (path: Ll.operand list) : ins list =
+let compile_gep (ctxt : ctxt) (op : Ll.ty * Ll.operand) (path: Ll.operand list) : ins list =
   failwith "compile_gep not implemented"
 
 
@@ -198,7 +198,7 @@ let compile_gep ctxt (op : Ll.ty * Ll.operand) (path: Ll.operand list) : ins lis
 
    - Bitcast: does nothing interesting at the assembly level
 *)
-let compile_insn ctxt (uid, i) : X86.ins list =
+let compile_insn (ctxt : ctxt) (uid, i) : X86.ins list =
   failwith "compile_insn not implemented"
 
 
@@ -215,17 +215,17 @@ let compile_insn ctxt (uid, i) : X86.ins list =
 
    - Cbr branch should treat its operand as a boolean conditional
 *)
-let compile_terminator ctxt t =
+let compile_terminator (ctxt : ctxt) t =
   failwith "compile_terminator not implemented"
 
 
 (* compiling blocks --------------------------------------------------------- *)
 
 (* We have left this helper function here for you to complete. *)
-let compile_block ctxt blk : ins list =
+let compile_block (ctxt : ctxt) blk : ins list =
   failwith "compile_block not implemented"
 
-let compile_lbl_block lbl ctxt blk : elem =
+let compile_lbl_block lbl (ctxt : ctxt) blk : elem =
   Asm.text lbl (compile_block ctxt blk)
 
 
