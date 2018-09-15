@@ -89,7 +89,7 @@ let lookup m x = List.assoc x m
    the X86 instruction that moves an LLVM operand into a designated
    destination (usually a register).  
 *)
-let compile_operand (ctxt : ctxt) dest : Ll.operand -> ins =
+let compile_operand (ctxt : ctxt) (dest : X86.operand) : Ll.operand -> ins =
   function _ -> failwith "compile_operand unimplemented"
 
 
@@ -139,7 +139,7 @@ let compile_operand (ctxt : ctxt) dest : Ll.operand -> ins =
    - Void, i8, and functions have undefined sizes according to LLVMlite.
      Your function should simply return 0 in those cases
 *)
-let rec size_ty tdecls t : int =
+let rec size_ty (tdecls : (tid * ty) list) t : int =
   failwith "size_ty not implemented"
 
 
@@ -198,7 +198,7 @@ let compile_gep (ctxt : ctxt) (op : Ll.ty * Ll.operand) (path: Ll.operand list) 
 
    - Bitcast: does nothing interesting at the assembly level
 *)
-let compile_insn (ctxt : ctxt) (uid, i) : X86.ins list =
+let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
   failwith "compile_insn not implemented"
 
 
@@ -215,17 +215,17 @@ let compile_insn (ctxt : ctxt) (uid, i) : X86.ins list =
 
    - Cbr branch should treat its operand as a boolean conditional
 *)
-let compile_terminator (ctxt : ctxt) t =
+let compile_terminator (ctxt : ctxt) (t : terminator) : X86.ins list =
   failwith "compile_terminator not implemented"
 
 
 (* compiling blocks --------------------------------------------------------- *)
 
 (* We have left this helper function here for you to complete. *)
-let compile_block (ctxt : ctxt) blk : ins list =
+let compile_block (ctxt : ctxt) (blk : block) : ins list =
   failwith "compile_block not implemented"
 
-let compile_lbl_block lbl (ctxt : ctxt) blk : elem =
+let compile_lbl_block lbl (ctxt : ctxt) (blk : block) : elem =
   Asm.text lbl (compile_block ctxt blk)
 
 
@@ -279,7 +279,7 @@ let stack_layout (args: uid list) ((block, lbled_blocks): cfg) : layout =
    - the function entry code should allocate the stack storage needed
      to hold all of the local stack slots.
 *)
-let compile_fdecl tdecls name { f_ty; f_param; f_cfg } =
+let compile_fdecl (tdecls : (tid * ty) list) (name : gid) { f_ty; f_param; f_cfg } : X86.prog =
   failwith "compile_fdecl unimplemented"
 
 
