@@ -359,3 +359,28 @@ let cleanStack = Movq, [Reg(Rbp); Reg(Rsp)]
 let restoreCallerBasePointer = Popq, [Reg(Rbp)]
 let returnToCaller = Retq, []
 let calleeReturnIns = restoreCalleeSaveReg @ [cleanStack; restoreCallerBasePointer; returnToCaller]
+
+(* block layout *)
+type offset = int
+let wordSize = 8
+let fromRbp = fun i -> Ind3(Lit(Int64.of_int i), Rbp)
+
+let blockLayout ({insns; term=(uid, _)}: block) (offset: offset): (layout * offset) =
+  let insnsLayout = insns |> List.mapi (fun ind (uid, _) -> (uid, fromRbp(-wordSize * ind + offset))) in
+  let offset = offset + (-wordSize * List.length(insns)) in
+  let termLayout = (uid, fromRbp(offset)) in
+  (termLayout::insnsLayout, offset - 8)
+
+let stackLayout (args: uid list) ((block, lbled_blocks): cfg) : layout =
+  let offset = -wordSize * (List.length(calleeSaveReg) + 1) in 
+  let argsLayout = args |> List.mapi (fun ind uid -> (uid, fromRbp(-wordSize * ind + offset))) in
+  let offset = offset + (-wordSize * List.length(args)) in
+  let (entryBlockLayout, offset) = (blockLayout block offset) in
+  let (lbledBlocksLayout, _) = 
+    List.fold_left (
+      fun (layoutStream, offset) (_, block) ->
+        let (layout, offset) = (blockLayout block offset) in
+        (layout @ layoutStream, offset)
+    ) ([], offset) lbled_blocks
+  in
+  argsLayout @ entryBlockLayout @ lbledBlocksLayout
