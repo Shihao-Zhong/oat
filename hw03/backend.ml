@@ -235,6 +235,7 @@ let wordSize = 8
 type offset = int
 let fromRbp = fun i -> Ind3(Lit(Int64.of_int i), Rbp)
 
+(* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> *)
 (* This helper function computes the location of the nth incoming
    function argument: either in a register or relative to %rbp,
    according to the calling conventions.  You might find it useful for
@@ -254,8 +255,9 @@ let arg_loc (n : int) : operand =
   (* R10 is used as a static chain pointer in case of nested functions *)
   (* + 2 accounts for the instruction pointer and base pointer stored on the stack *)
   | n -> fromRbp((n - numArgsStoredInReg + 2) * wordSize)
+(* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< *)
 
-
+(* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> *)
 (* We suggest that you create a helper function that computes the 
    stack layout for a given function declaration.
 
@@ -286,7 +288,9 @@ let stack_layout (args: uid list) ((block, lbled_blocks): cfg) : layout =
     ) ([], offset) lbled_blocks
   in
   argsLayout @ entryBlockLayout @ lbledBlocksLayout
+(* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< *)
 
+(* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> *)
 (* The code for the entry-point of a function must do several things:
 
    - since our simple compiler maps local %uids to stack slots,
@@ -303,10 +307,46 @@ let stack_layout (args: uid list) ((block, lbled_blocks): cfg) : layout =
    - the function entry code should allocate the stack storage needed
      to hold all of the local stack slots.
 *)
+
+let pushRegIntoStack = fun reg -> Pushq, [Reg(reg)]
+
+let restoreCalleeSaveReg = calleeSaveReg |> List.mapi(
+    fun i reg ->
+      let addr = fun i -> Ind3(Lit(Int64.of_int(-8 * i)), Rbp) in
+      Movq, [addr i; Reg reg]
+  )
+
+(* Callee return ins *)
+let cleanStack = Movq, [Reg(Rbp); Reg(Rsp)]
+let restoreCallerBasePointer = Popq, [Reg(Rbp)]
+let returnToCaller = Retq, []
+let calleeReturnIns = restoreCalleeSaveReg @ [cleanStack; restoreCallerBasePointer; returnToCaller]
+
+(*
+The invariant when control is transfered to the Callee:
+- Rsp points to the top of the caller stack frame which holds the Rip before the call
+- Rbp is the base pointer of the caller stack frame
+- Rip points to the first instruction of the Callee
+
+In Callee:
+- Push the base pointer into the stack
+- Update the base pointer to point to the stack pointer and so create a new stack frame
+- Push all the Callee save registers into the stack
+- << CFG >>
+- Restore all the Callee save registers
+- Clean the Callee stack frame
+- Restore the base pointer of the Caller stack frame
+- Return control to Caller
+*)
 let compile_fdecl (tdecls : (tid * ty) list) (name : gid) { f_ty; f_param; f_cfg } : X86.prog =
-  failwith "compile_fdecl unimplemented"
+  (* Callee start ins *)
+  let pushBasePointer = pushRegIntoStack Rbp in
+  let newStackFrame = Movq, [Reg(Rsp); Reg(Rbp)] in
+  let pushCalleeSaveReg = calleeSaveReg |> List.map pushRegIntoStack in
+  let calleeStartIns = pushBasePointer::newStackFrame::pushCalleeSaveReg in
+  []
 
-
+(* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< *)
 
 (* compile_gdecl ------------------------------------------------------------ *)
 (* Compile a global value into an X86 global data declaration and map
@@ -331,7 +371,6 @@ let compile_prog {tdecls; gdecls; fdecls} : X86.prog =
 
 (* NOTES -------------------------------------------------------------------- *)
 
-let pushRegIntoStack = fun reg -> Pushq, [Reg(reg)]
 (*
 In Caller
 - Push all Caller save register into the stack
@@ -347,37 +386,3 @@ let callerSaveReg = [Rax; Rcx; Rdx; Rsi; Rdi; Rsp; R08; R09; R10; R11]
 let pushCallerSaveReg = callerSaveReg |> List.map pushRegIntoStack
 (* Prepare the arguments; Callq *)
 let callerBeforeIns = pushCallerSaveReg
-
-
-(*
-The invariant when control is transfered to the Callee:
-- Rsp points to the top of the caller stack frame which holds the Rip before the call
-- Rbp is the base pointer of the caller stack frame
-- Rip points to the first instruction of the Callee
-
-In Callee:
-- Push the base pointer into the stack
-- Update the base pointer to point to the stack pointer and so create a new stack frame
-- Push all the Callee save registers into the stack
-- << CFG >>
-- Restore all the Callee save registers
-- Clean the Callee stack frame
-- Restore the base pointer of the Caller stack frame
-- Return control to Caller
-*)
-
-(* Callee start ins *)
-let pushBasePointer = pushRegIntoStack Rbp
-let newStackFrame = Movq, [Reg(Rsp); Reg(Rbp)]
-let pushCalleeSaveReg = calleeSaveReg |> List.map pushRegIntoStack
-let calleeStartIns = pushBasePointer::newStackFrame::pushCalleeSaveReg
-(* Callee return ins *)
-let restoreCalleeSaveReg = calleeSaveReg |> List.mapi(
-    fun i reg ->
-      let addr = fun i -> Ind3(Lit(Int64.of_int(-8 * i)), Rbp) in
-      Movq, [addr i; Reg reg]
-  )
-let cleanStack = Movq, [Reg(Rbp); Reg(Rsp)]
-let restoreCallerBasePointer = Popq, [Reg(Rbp)]
-let returnToCaller = Retq, []
-let calleeReturnIns = restoreCalleeSaveReg @ [cleanStack; restoreCallerBasePointer; returnToCaller]
