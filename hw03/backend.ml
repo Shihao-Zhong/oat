@@ -231,7 +231,9 @@ let compile_lbl_block lbl (ctxt : ctxt) (blk : block) : elem =
 
 
 (* compile_fdecl ------------------------------------------------------------ *)
-
+let wordSize = 8
+type offset = int
+let fromRbp = fun i -> Ind3(Lit(Int64.of_int i), Rbp)
 
 (* This helper function computes the location of the nth incoming
    function argument: either in a register or relative to %rbp,
@@ -241,6 +243,7 @@ let compile_lbl_block lbl (ctxt : ctxt) (blk : block) : elem =
    [ NOTE: the first six arguments are numbered 0 .. 5 ]
 *)
 let arg_loc (n : int) : operand =
+  let numArgsStoredInReg = 6 in
   match n with
   | 0 -> Reg(Rdi)
   | 1 -> Reg(Rsi)
@@ -249,7 +252,8 @@ let arg_loc (n : int) : operand =
   | 4 -> Reg(R08)
   | 5 -> Reg(R09)
   (* R10 is used as a static chain pointer in case of nested functions *)
-  | n -> Ind3(Lit(Int64.of_int ((n - 6 + 2) * 8)), Rbp)
+  (* + 2 accounts for the instruction pointer and base pointer stored on the stack *)
+  | n -> fromRbp((n - numArgsStoredInReg + 2) * wordSize)
 
 
 (* We suggest that you create a helper function that computes the 
@@ -261,8 +265,27 @@ let arg_loc (n : int) : operand =
    - see the discusion about locals 
 
 *)
+let calleeSaveReg = [Rbx; R12; R13; R14; R15]
+
+let blockLayout ({insns; term=(uid, _)}: block) (offset: offset): (layout * offset) =
+  let insnsLayout = insns |> List.mapi (fun ind (uid, _) -> (uid, fromRbp(-wordSize * ind + offset))) in
+  let offset = offset + (-wordSize * List.length(insns)) in
+  let termLayout = (uid, fromRbp(offset)) in
+  (termLayout::insnsLayout, offset - wordSize)
+
 let stack_layout (args: uid list) ((block, lbled_blocks): cfg) : layout =
-  failwith "stack_layout not implemented"
+  let offset = -wordSize * (List.length(calleeSaveReg) + 1) in 
+  let argsLayout = args |> List.mapi (fun ind uid -> (uid, fromRbp(-wordSize * ind + offset))) in
+  let offset = offset + (-wordSize * List.length(args)) in
+  let (entryBlockLayout, offset) = (blockLayout block offset) in
+  let (lbledBlocksLayout, _) = 
+    List.fold_left (
+      fun (layoutStream, offset) (_, block) ->
+        let (layout, offset) = (blockLayout block offset) in
+        (layout @ layoutStream, offset)
+    ) ([], offset) lbled_blocks
+  in
+  argsLayout @ entryBlockLayout @ lbledBlocksLayout
 
 (* The code for the entry-point of a function must do several things:
 
@@ -346,7 +369,6 @@ In Callee:
 (* Callee start ins *)
 let pushBasePointer = pushRegIntoStack Rbp
 let newStackFrame = Movq, [Reg(Rsp); Reg(Rbp)]
-let calleeSaveReg = [Rbx; R12; R13; R14; R15]
 let pushCalleeSaveReg = calleeSaveReg |> List.map pushRegIntoStack
 let calleeStartIns = pushBasePointer::newStackFrame::pushCalleeSaveReg
 (* Callee return ins *)
@@ -359,28 +381,3 @@ let cleanStack = Movq, [Reg(Rbp); Reg(Rsp)]
 let restoreCallerBasePointer = Popq, [Reg(Rbp)]
 let returnToCaller = Retq, []
 let calleeReturnIns = restoreCalleeSaveReg @ [cleanStack; restoreCallerBasePointer; returnToCaller]
-
-(* block layout *)
-type offset = int
-let wordSize = 8
-let fromRbp = fun i -> Ind3(Lit(Int64.of_int i), Rbp)
-
-let blockLayout ({insns; term=(uid, _)}: block) (offset: offset): (layout * offset) =
-  let insnsLayout = insns |> List.mapi (fun ind (uid, _) -> (uid, fromRbp(-wordSize * ind + offset))) in
-  let offset = offset + (-wordSize * List.length(insns)) in
-  let termLayout = (uid, fromRbp(offset)) in
-  (termLayout::insnsLayout, offset - 8)
-
-let stackLayout (args: uid list) ((block, lbled_blocks): cfg) : layout =
-  let offset = -wordSize * (List.length(calleeSaveReg) + 1) in 
-  let argsLayout = args |> List.mapi (fun ind uid -> (uid, fromRbp(-wordSize * ind + offset))) in
-  let offset = offset + (-wordSize * List.length(args)) in
-  let (entryBlockLayout, offset) = (blockLayout block offset) in
-  let (lbledBlocksLayout, _) = 
-    List.fold_left (
-      fun (layoutStream, offset) (_, block) ->
-        let (layout, offset) = (blockLayout block offset) in
-        (layout @ layoutStream, offset)
-    ) ([], offset) lbled_blocks
-  in
-  argsLayout @ entryBlockLayout @ lbledBlocksLayout
