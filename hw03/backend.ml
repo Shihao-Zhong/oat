@@ -216,14 +216,17 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
    - Cbr branch should treat its operand as a boolean conditional
 *)
 let compile_terminator (ctxt : ctxt) (t : terminator) : X86.ins list =
-  failwith "compile_terminator not implemented"
-
+  match t with
+  | Ret(Void, None) -> [(Retq, [])]
+  | _ -> failwith "compile_terminator not implemented"
 
 (* compiling blocks --------------------------------------------------------- *)
 
 (* We have left this helper function here for you to complete. *)
 let compile_block (ctxt : ctxt) (blk : block) : ins list =
-  failwith "compile_block not implemented"
+  match blk with
+  | {insns = []; term=(_, t)} -> compile_terminator ctxt t
+  | _ -> failwith "compile_block not implemented"
 
 let compile_lbl_block lbl (ctxt : ctxt) (blk : block) : elem =
   Asm.text lbl (compile_block ctxt blk)
@@ -347,20 +350,25 @@ let copyParamsIns (stackLayout: layout) (f_param: uid list): ins list =
   List.mapi aux f_param
 
 let compile_fdecl (tdecls : (tid * ty) list) (name : gid) { f_ty; f_param; f_cfg } : X86.prog =
-  let stackLayout = stack_layout f_param f_cfg in
-  (* Callee start ins *)
+  let (entryBlock, lbledBlocks) = f_cfg in
+  let layout = stack_layout f_param f_cfg in
+  let context: ctxt = {tdecls; layout} in
+  (* Start + Entry Block *)
   let pushBasePointer = pushRegIntoStack Rbp in
   let newStackFrame = Movq, [Reg(Rsp); Reg(Rbp)] in
   let pushCalleeSaveReg = calleeSaveReg |> List.map pushRegIntoStack in
-  let copyParamIntoStack = copyParamsIns stackLayout f_param in
-  let calleeStartIns = pushBasePointer::newStackFrame::pushCalleeSaveReg @ copyParamIntoStack in
+  let copyParamIntoStack = copyParamsIns layout f_param in
+  let entryBlockIns = compile_block context entryBlock in
+  let startIns = pushBasePointer::newStackFrame::pushCalleeSaveReg @ copyParamIntoStack @ entryBlockIns in
   let elm = {
-    lbl=name; (* TODO: what's a label? *)
+    lbl=name;
     global=true;
-    asm=Text(calleeStartIns)
-  }
-  in
-  [elm]
+    asm=Text(startIns)
+  } in
+  (* Labeled Blocks *)
+  let lbledBlocksIns = lbledBlocks |> List.map (fun (lbl, blk) -> compile_lbl_block lbl context blk) in
+  (* Return *)
+  elm::lbledBlocksIns
 
 (* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< *)
 
