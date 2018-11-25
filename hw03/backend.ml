@@ -342,7 +342,7 @@ let copyArgs (stackLayout: layout) (f_param: uid list): ins list =
   let aux = fun ind uid -> 
     let fromOp = arg_loc ind in 
     let toOp = lookup stackLayout uid in
-    (Movq, [fromOp, toOp])
+    (Movq, [fromOp; toOp])
   in
   List.mapi aux f_param
 
