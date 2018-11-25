@@ -338,8 +338,13 @@ In Callee:
 - Restore the base pointer of the Caller stack frame
 - Return control to Caller
 *)
-let copyArgs (stackLayout: layout) (f_param: uid list): ins list = []
-
+let copyArgs (stackLayout: layout) (f_param: uid list): ins list =
+  let aux = fun ind uid -> 
+    let fromOp = arg_loc ind in 
+    let toOp = lookup stackLayout uid in
+    (Movq, [fromOp, toOp])
+  in
+  List.mapi aux f_param
 
 let compile_fdecl (tdecls : (tid * ty) list) (name : gid) { f_ty; f_param; f_cfg } : X86.prog =
   let stackLayout = stack_layout f_param f_cfg in
