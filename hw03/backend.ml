@@ -313,11 +313,7 @@ let stack_layout (args: uid list) ((block, lbled_blocks): cfg) : layout =
 
 let pushRegIntoStack = fun reg -> Pushq, [Reg(reg)]
 
-let restoreCalleeSaveReg = calleeSaveReg |> List.mapi(
-    fun i reg ->
-      let addr = fun i -> Ind3(Lit(Int64.of_int(-8 * i)), Rbp) in
-      Movq, [addr i; Reg reg]
-  )
+let restoreCalleeSaveReg = calleeSaveReg |> List.mapi(fun i reg -> Movq, [fromRbp (-wordSize * i); Reg reg])
 
 (* Callee return ins *)
 let cleanStack = Movq, [Reg(Rbp); Reg(Rsp)]
