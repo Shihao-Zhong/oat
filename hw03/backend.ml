@@ -338,13 +338,25 @@ In Callee:
 - Restore the base pointer of the Caller stack frame
 - Return control to Caller
 *)
+let copyArgs (stackLayout: layout) (f_param: uid list): ins list = []
+
+
 let compile_fdecl (tdecls : (tid * ty) list) (name : gid) { f_ty; f_param; f_cfg } : X86.prog =
+  let stackLayout = stack_layout f_param f_cfg in
+  let copyArgsInstructions = copyArgs stackLayout f_param in
   (* Callee start ins *)
   let pushBasePointer = pushRegIntoStack Rbp in
   let newStackFrame = Movq, [Reg(Rsp); Reg(Rbp)] in
   let pushCalleeSaveReg = calleeSaveReg |> List.map pushRegIntoStack in
+
   let calleeStartIns = pushBasePointer::newStackFrame::pushCalleeSaveReg in
-  []
+  let elm = {
+    lbl=name; (* TODO: what's a label? *)
+    global=true;
+    asm=Text(calleeStartIns)
+  }
+  in
+  [elm]
 
 (* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< *)
 
