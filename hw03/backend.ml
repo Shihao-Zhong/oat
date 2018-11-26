@@ -209,12 +209,23 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
   let {tdecls; layout} = ctxt in
   let compile_operand = compile_operand ctxt in
   match i with
-  | Binop(Sub, ty, src, dest) ->
-    let loadSrcIns = compile_operand (Reg R08) src in
+  | Binop(bop, ty, op1, dest) ->
+    let x86Bop = match bop with
+      | Add -> Addq
+      | Sub -> Subq
+      | Mul -> Imulq
+      | Shl -> Shlq
+      | Lshr -> Shrq
+      | Ashr -> Sarq
+      | And -> Andq
+      | Or -> Orq
+      | Xor -> Xorq 
+    in
+    let loadOp1Ins = compile_operand (Reg R08) op1 in
     let loadDestIns = compile_operand (Reg Rax) dest in
-    let exectBopIns = (Subq, [(Reg R08); (Reg Rax)]) in
+    let exectBopIns = (x86Bop, [(Reg R08); (Reg Rax)]) in
     let saveResToUidIns = (Movq, [(Reg Rax); (lookup layout uid)]) in
-    [loadSrcIns; loadDestIns; exectBopIns; saveResToUidIns]
+    [loadOp1Ins; loadDestIns; exectBopIns; saveResToUidIns]
   | _ ->failwith "compile_insn not implemented"
 
 
