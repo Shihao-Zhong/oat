@@ -101,11 +101,6 @@ let compile_operand (ctxt : ctxt) (dest : X86.operand) : Ll.operand -> ins =
       let mangled = Platform.mangle(gid) in
       (Leaq, [Ind1(Lbl(mangled)); dest])
 
-
-
-
-
-
 (* compiling call  ---------------------------------------------------------- *)
 
 (* You will probably find it helpful to implement a helper function that 
@@ -211,7 +206,16 @@ let compile_gep (ctxt : ctxt) (op : Ll.ty * Ll.operand) (path: Ll.operand list) 
    - Bitcast: does nothing interesting at the assembly level
 *)
 let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
-  failwith "compile_insn not implemented"
+  let {tdecls; layout} = ctxt in
+  let compile_operand = compile_operand ctxt in
+  match i with
+  | Binop(Sub, ty, src, dest) ->
+    let loadSrcIns = compile_operand (Reg R08) src in
+    let loadDestIns = compile_operand (Reg Rax) dest in
+    let exectBopIns = (Subq, [(Reg R08); (Reg Rax)]) in
+    let saveResToUidIns = (Movq, [(Reg Rax); (lookup layout uid)]) in
+    [loadSrcIns; loadDestIns; exectBopIns; saveResToUidIns]
+  | _ ->failwith "compile_insn not implemented"
 
 
 
