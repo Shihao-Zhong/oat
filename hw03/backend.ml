@@ -90,10 +90,19 @@ let lookup m x = List.assoc x m
    destination (usually a register).  
 *)
 let compile_operand (ctxt : ctxt) (dest : X86.operand) : Ll.operand -> ins =
+  let { layout } = ctxt in
   fun op -> match op with
     | Null -> (Movq, [Imm(Lit(Int64.zero)); dest])
     | Const(c) -> (Movq, [Imm(Lit(c)); dest])
-    | _ -> failwith "compile_operand unimplemented"
+    | Id(uid) -> 
+      let src = lookup layout uid in
+      (Movq, [src; dest])
+    | Gid(gid) -> 
+      let mangled = Platform.mangle(gid) in
+      (Leaq, [Ind1(Lbl(mangled)); dest])
+
+
+
 
 
 
