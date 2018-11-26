@@ -90,7 +90,10 @@ let lookup m x = List.assoc x m
    destination (usually a register).  
 *)
 let compile_operand (ctxt : ctxt) (dest : X86.operand) : Ll.operand -> ins =
-  function _ -> failwith "compile_operand unimplemented"
+  fun op -> match op with
+    | Null -> (Movq, [Imm(Lit(Int64.zero)); dest])
+    | Const(c) -> (Movq, [Imm(Lit(c)); dest])
+    | _ -> failwith "compile_operand unimplemented"
 
 
 
