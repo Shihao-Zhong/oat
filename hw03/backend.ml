@@ -245,6 +245,7 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
 let compile_terminator (ctxt : ctxt) (t : terminator) : X86.ins list =
   match t with
   | Ret(Void, None) -> [(Retq, [])]
+  | Br(lbl) -> [(Jmp, [Imm(Lbl(lbl))])]
   | _ -> failwith "compile_terminator not implemented"
 
 (* compiling blocks --------------------------------------------------------- *)
