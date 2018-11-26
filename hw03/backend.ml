@@ -251,9 +251,12 @@ let compile_terminator (ctxt : ctxt) (t : terminator) : X86.ins list =
 
 (* We have left this helper function here for you to complete. *)
 let compile_block (ctxt : ctxt) (blk : block) : ins list =
-  match blk with
-  | {insns = []; term=(_, t)} -> compile_terminator ctxt t
-  | _ -> failwith "compile_block not implemented"
+  let compile_insn = compile_insn ctxt in
+  let compile_terminator = compile_terminator ctxt in
+  let {insns; term=(_, t)} = blk in
+  let compiledInstructions = insns |> (List.map compile_insn) |> List.flatten in 
+  let compiledTerminator = compile_terminator t in
+  compiledInstructions @ compiledTerminator
 
 let compile_lbl_block lbl (ctxt : ctxt) (blk : block) : elem =
   Asm.text lbl (compile_block ctxt blk)
