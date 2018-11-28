@@ -248,6 +248,10 @@ let compile_terminator (ctxt : ctxt) (t : terminator) : X86.ins list =
   | Ret(_, None) -> [(Retq, [])]
   | Ret(_, Some(retVal)) -> (returnValueIns retVal)::(Retq, [])::[]
   | Br(lbl) -> [(Jmp, [Imm(Lbl(lbl))])]
+  | Cbr(Const(c), lbl1, lbl2) -> 
+    (Cmpq, [Imm(Lit(c)); Imm(Lit(1L))])::
+    (J Eq, [Imm(Lbl(lbl1))])::
+    (Jmp, [Imm(Lbl(lbl2))])::[]
   | _ -> failwith "compile_terminator not implemented"
 
 (* compiling blocks --------------------------------------------------------- *)
