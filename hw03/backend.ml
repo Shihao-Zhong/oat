@@ -243,8 +243,10 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
    - Cbr branch should treat its operand as a boolean conditional
 *)
 let compile_terminator (ctxt : ctxt) (t : terminator) : X86.ins list =
+  let returnValueIns = compile_operand ctxt (Reg Rax) in
   match t with
-  | Ret(Void, None) -> [(Retq, [])]
+  | Ret(_, None) -> [(Retq, [])]
+  | Ret(_, Some(retVal)) -> (returnValueIns retVal)::(Retq, [])::[]
   | Br(lbl) -> [(Jmp, [Imm(Lbl(lbl))])]
   | _ -> failwith "compile_terminator not implemented"
 
