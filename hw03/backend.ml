@@ -248,10 +248,11 @@ let compile_terminator (ctxt : ctxt) (t : terminator) : X86.ins list =
   | Ret(_, None) -> [(Retq, [])]
   | Ret(_, Some(retVal)) -> (returnValueIns retVal)::(Retq, [])::[]
   | Br(lbl) -> [(Jmp, [Imm(Lbl(lbl))])]
-  | Cbr(Const(c), lbl1, lbl2) -> 
-    (Cmpq, [Imm(Lit(c)); Imm(Lit(1L))])::
-    (J Eq, [Imm(Lbl(lbl1))])::
-    (Jmp, [Imm(Lbl(lbl2))])::[]
+  | Cbr(Const(c), lbl1, lbl2) -> [
+      (Cmpq, [Imm(Lit(c)); Imm(Lit(1L))]);
+      (J Eq, [Imm(Lbl(lbl1))]);
+      (Jmp, [Imm(Lbl(lbl2))])
+    ]
   | _ -> failwith "compile_terminator not implemented"
 
 (* compiling blocks --------------------------------------------------------- *)
@@ -394,7 +395,7 @@ let compile_fdecl (tdecls : (tid * ty) list) (name : gid) { f_ty; f_param; f_cfg
   let entryBlockIns = compile_block context entryBlock in
   let startIns = pushBasePointer::newStackFrame::pushCalleeSaveReg @ copyParamIntoStack @ entryBlockIns in
   let elm = {
-    lbl=name;
+    lbl= Platform.mangle name;
     global=true;
     asm=Text(startIns)
   } in
