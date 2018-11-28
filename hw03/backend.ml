@@ -23,6 +23,12 @@ let compile_cnd = function
   | Ll.Sge -> X86.Ge
 
 
+let wordSize = 8
+type offset = int
+let fromRbp = fun i -> Ind3(Lit(Int64.of_int i), Rbp)
+
+let calleeSaveReg = [Rbx; R12; R13; R14; R15]
+let callerSaveReg = [Rax; Rcx; Rdx; Rsi; Rdi; Rsp; R08; R09; R10; R11]
 
 (* locals and layout -------------------------------------------------------- *)
 
@@ -242,11 +248,18 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
 
    - Cbr branch should treat its operand as a boolean conditional
 *)
+
+let restoreCalleeSaveRegIns = calleeSaveReg |> List.mapi (fun ind reg -> (Movq, [fromRbp (-wordSize * (ind + 1)); Reg(reg)]))
+let clearStackIns = [(Movq, [Reg(Rbp); Reg(Rsp)])]
+let restoreCallerStackBasePointerIns = [(Popq, [Reg(Rbp)])]
+let exitCalleeIns = restoreCalleeSaveRegIns @ clearStackIns @ restoreCallerStackBasePointerIns @ [(Retq, [])]
+
+
 let compile_terminator (ctxt : ctxt) (t : terminator) : X86.ins list =
   let returnValueIns = compile_operand ctxt (Reg Rax) in
   match t with
-  | Ret(_, None) -> [(Retq, [])]
-  | Ret(_, Some(retVal)) -> (returnValueIns retVal)::(Retq, [])::[]
+  | Ret(_, None) -> exitCalleeIns
+  | Ret(_, Some(retVal)) -> (returnValueIns retVal)::exitCalleeIns
   | Br(lbl) -> [(Jmp, [Imm(Lbl(lbl))])]
   | Cbr(Const(c), lbl1, lbl2) -> [
       (Cmpq, [Imm(Lit(c)); Imm(Lit(1L))]);
@@ -272,9 +285,6 @@ let compile_lbl_block lbl (ctxt : ctxt) (blk : block) : elem =
 
 
 (* compile_fdecl ------------------------------------------------------------ *)
-let wordSize = 8
-type offset = int
-let fromRbp = fun i -> Ind3(Lit(Int64.of_int i), Rbp)
 
 (* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> *)
 (* This helper function computes the location of the nth incoming
@@ -308,8 +318,6 @@ let arg_loc (n : int) : operand =
    - see the discusion about locals 
 
 *)
-let calleeSaveReg = [Rbx; R12; R13; R14; R15]
-
 let blockLayout ({insns; term=(uid, _)}: block) (offset: offset): (layout * offset) =
   let insnsLayout = insns |> List.mapi (fun ind (uid, _) -> (uid, fromRbp(-wordSize * ind + offset))) in
   let offset = offset + (-wordSize * List.length(insns)) in
@@ -349,7 +357,7 @@ let stack_layout (args: uid list) ((block, lbled_blocks): cfg) : layout =
      to hold all of the local stack slots.
 *)
 
-let pushRegIntoStack = fun reg -> Pushq, [Reg(reg)]
+let pushRegIntoStack reg = Pushq, [Reg(reg)]
 
 let restoreCalleeSaveReg = calleeSaveReg |> List.mapi(fun i reg -> Movq, [fromRbp (-wordSize * i); Reg reg])
 
@@ -438,9 +446,3 @@ In Caller
 - Restore Caller save registers
 - ...
 *)
-
-(* Caller before ins *)
-let callerSaveReg = [Rax; Rcx; Rdx; Rsi; Rdi; Rsp; R08; R09; R10; R11]
-let pushCallerSaveReg = callerSaveReg |> List.map pushRegIntoStack
-(* Prepare the arguments; Callq *)
-let callerBeforeIns = pushCallerSaveReg
