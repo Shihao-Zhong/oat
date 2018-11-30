@@ -242,6 +242,14 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
     let setResToFalse = (Movq, [Imm(Lit(Int64.zero)); (lookup layout uid)]) in
     let storeCompResIns = [setResToTrue; jumpOverFalse; setResToFalse] in
     loadOp1Ins::loadOp2Ins::exectBopIns::storeCompResIns
+  | Alloca(ty) ->
+    let allocWordIns = (Addq, [Imm(Lit(Int64.of_int(-wordSize))); Reg(Rsp)]) in
+    let storeResIns = (Movq, [Reg(Rsp); (lookup layout uid)]) in
+    [allocWordIns; storeResIns]
+  | Load(ty, p) ->
+    let moveToRegIns = compile_operand (Reg Rax) p in
+    let copyFromRegToDestIns = (Movq, [Reg(Rax); (lookup layout uid)]) in
+    [moveToRegIns; copyFromRegToDestIns]
   | _ ->failwith "compile_insn not implemented"
 
 
