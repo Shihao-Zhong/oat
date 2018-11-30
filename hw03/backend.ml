@@ -227,9 +227,9 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
       | Or -> Orq
       | Xor -> Xorq 
     in
-    let loadOp1Ins = compile_operand (Reg R08) op1 in
-    let loadDestIns = compile_operand (Reg Rax) dest in
-    let exectBopIns = (x86Bop, [(Reg R08); (Reg Rax)]) in
+    let loadOp1Ins = compile_operand (Reg Rax) op1 in
+    let loadDestIns = compile_operand (Reg Rcx) dest in
+    let exectBopIns = (x86Bop, [(Reg Rcx); (Reg Rax)]) in
     let saveResToUidIns = (Movq, [(Reg Rax); (lookup layout uid)]) in
     [loadOp1Ins; loadDestIns; exectBopIns; saveResToUidIns]
   | _ ->failwith "compile_insn not implemented"
