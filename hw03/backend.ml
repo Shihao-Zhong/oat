@@ -237,14 +237,11 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
     let loadOp1Ins = compile_operand (Reg Rax) op1 in
     let loadOp2Ins = compile_operand (Reg Rcx) op2 in
     let exectBopIns = (Cmpq, [(Reg Rax); (Reg Rcx)]) in
-    let storeCompResIns = [
-      (Movq, [Imm(Lit(Int64.one)); (lookup layout uid)]);
-      (J cndX86,  [Ind3(Lit(Int64.of_int(wordSize * 2)), Rip)]);
-      (Movq, [Imm(Lit(Int64.zero)); (lookup layout uid)]);
-    ]
-    in
+    let setResToTrue = (Movq, [Imm(Lit(Int64.one)); (lookup layout uid)]) in
+    let jumpOverFalse = (J cndX86,  [Ind3(Lit(Int64.of_int(wordSize * 2)), Rip)]) in
+    let setResToFalse = (Movq, [Imm(Lit(Int64.zero)); (lookup layout uid)]) in
+    let storeCompResIns = [setResToTrue; jumpOverFalse; setResToFalse] in
     loadOp1Ins::loadOp2Ins::exectBopIns::storeCompResIns
-
   | _ ->failwith "compile_insn not implemented"
 
 
