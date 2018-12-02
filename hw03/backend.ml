@@ -26,9 +26,19 @@ let compile_cnd = function
 let wordSize = 8
 type offset = int
 let fromRbp = fun i -> Ind3(Lit(Int64.of_int i), Rbp)
+let pushRegIntoStack reg = Pushq, [Reg(reg)]
 
 let calleeSaveReg = [Rbx; R12; R13; R14; R15]
 let callerSaveReg = [Rax; Rcx; Rdx; Rsi; Rdi; Rsp; R08; R09; R10; R11]
+
+let firstSixArgRegMap = function
+  | 0 -> Rdi
+  | 1 -> Rsi
+  | 2 -> Rdx
+  | 3 -> Rcx
+  | 4 -> R08
+  | 5 -> R09
+  | _ -> failwith "only for the first six args"
 
 (* locals and layout -------------------------------------------------------- *)
 
@@ -328,16 +338,13 @@ let compile_lbl_block lbl (ctxt : ctxt) (blk : block) : elem =
 *)
 let arg_loc (n : int) : operand =
   let numArgsStoredInReg = 6 in
-  match n with
-  | 0 -> Reg(Rdi)
-  | 1 -> Reg(Rsi)
-  | 2 -> Reg(Rdx)
-  | 3 -> Reg(Rcx)
-  | 4 -> Reg(R08)
-  | 5 -> Reg(R09)
-  (* R10 is used as a static chain pointer in case of nested functions *)
-  (* + 2 accounts for the instruction pointer and base pointer stored on the stack *)
-  | n -> fromRbp((n - numArgsStoredInReg + 2) * wordSize)
+  if n < numArgsStoredInReg
+  then Reg(firstSixArgRegMap n)
+  else 
+    (* R10 is used as a static chain pointer in case of nested functions *)
+    (* + 2 accounts for the instruction pointer and base pointer stored on the stack *)
+    fromRbp((n - numArgsStoredInReg + 2) * wordSize)
+
 (* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< *)
 
 (* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> *)
@@ -388,8 +395,6 @@ let stack_layout (args: uid list) ((block, lbled_blocks): cfg) : layout =
    - the function entry code should allocate the stack storage needed
      to hold all of the local stack slots.
 *)
-
-let pushRegIntoStack reg = Pushq, [Reg(reg)]
 
 let restoreCalleeSaveReg = calleeSaveReg |> List.mapi(fun i reg -> Movq, [fromRbp (-wordSize * i); Reg reg])
 
