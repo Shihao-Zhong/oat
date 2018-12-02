@@ -247,7 +247,7 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
     let moveToRegIns = compile_operand (Reg Rax) p in
     let interStoreIns = (Movq, [Ind2(Rax); (Reg R08)]) in
     let copyFromRegToDestIns = (Movq, [(Reg R08); (lookup layout uid)]) in
-    [moveToRegIns; copyFromRegToDestIns]
+    [moveToRegIns; interStoreIns; copyFromRegToDestIns]
   | Store(ty, op1, op2) -> 
     let loadOp1Ins = compile_operand (Reg Rax) op1 in
     let loadOp2Ins = compile_operand (Reg R08) op2 in
