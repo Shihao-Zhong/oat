@@ -160,12 +160,12 @@ let compile_call ctxt uid fn args =
   let compile_operand = compile_operand ctxt in
   let args = args |> List.map (fun (_, src) -> src) in
   let pushCallerSaveRegIns = callerSaveReg |> List.map pushRegIntoStack in
-  let moveFirstSixArgsIns =
+  let copyFirstSixArgsIns =
     args
     |> first numArgsStoredInReg
     |> List.mapi (fun i src -> compile_operand (argRegMap i) src)
   in
-  let moveRemainingArgsInRevIns = 
+  let pushRemainingArgsInRevIns = 
     args
     |> after numArgsStoredInReg
     |> List.rev
@@ -181,11 +181,11 @@ let compile_call ctxt uid fn args =
   in
   let removeArgsFromStack =
     let numArgsInStack = args |> after numArgsStoredInReg |> List.length in
-    let offset = -wordSize * numArgsInStack in
+    let offset = wordSize * numArgsInStack in
     [(Addq, [Imm(Lit(Int64.of_int(offset))); (Reg Rsp)])]
   in
   let restoreCallerSaveRegIns = callerSaveReg |> List.rev |> List.map (fun reg -> (Popq, [(Reg reg)])) in
-  pushCallerSaveRegIns @ moveFirstSixArgsIns @ moveRemainingArgsInRevIns @ invoke @ removeArgsFromStack @ restoreCallerSaveRegIns
+  pushCallerSaveRegIns @ copyFirstSixArgsIns @ pushRemainingArgsInRevIns @ invoke @ removeArgsFromStack @ restoreCallerSaveRegIns
 
 (* compiling getelementptr (gep)  ------------------------------------------- *)
 
