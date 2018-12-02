@@ -236,12 +236,9 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
     let cndX86 = compile_cnd cnd in
     let loadOp1Ins = compile_operand (Reg Rax) op1 in
     let loadOp2Ins = compile_operand (Reg Rcx) op2 in
-    let exectBopIns = (Cmpq, [(Reg Rax); (Reg Rcx)]) in
-    let setResToTrue = (Movq, [Imm(Lit(Int64.one)); (lookup layout uid)]) in
-    let jumpOverFalse = (J cndX86,  [Ind3(Lit(Int64.of_int(wordSize * 2)), Rip)]) in
-    let setResToFalse = (Movq, [Imm(Lit(Int64.zero)); (lookup layout uid)]) in
-    let storeCompResIns = [setResToTrue; jumpOverFalse; setResToFalse] in
-    loadOp1Ins::loadOp2Ins::exectBopIns::storeCompResIns
+    let execCmpIns = (Cmpq, [(Reg Rcx); (Reg Rax)]) in
+    let storeResIns = (Set cndX86,  [lookup layout uid]) in
+    loadOp1Ins::loadOp2Ins::execCmpIns::storeResIns::[]
   | Alloca(ty) ->
     let allocWordIns = (Addq, [Imm(Lit(Int64.of_int(-wordSize))); Reg(Rsp)]) in
     let storeResIns = (Movq, [Reg(Rsp); (lookup layout uid)]) in
@@ -277,18 +274,25 @@ let restoreCallerStackBasePointerIns = [(Popq, [Reg(Rbp)])]
 let exitCalleeIns = restoreCalleeSaveRegIns @ clearStackIns @ restoreCallerStackBasePointerIns @ [(Retq, [])]
 
 
+let compileCndIns layout op =
+  match op with
+  | Const(c) -> (Movq, [Imm(Lit(c)); (Reg Rax)])
+  | Id(uid) -> (Movq, [lookup layout uid; (Reg Rax)])
+  | _ -> failwith "kill me"
+
 let compile_terminator (ctxt : ctxt) (t : terminator) : X86.ins list =
   match t with
   | Ret(_, None) -> exitCalleeIns
   | Ret(_, Some(Id(uid))) -> (Movq, [lookup ctxt.layout uid; Reg(Rax)])::exitCalleeIns
   | Ret(_, Some(Const(c))) -> (Movq, [Imm(Lit(c)); Reg(Rax)])::exitCalleeIns
   | Br(lbl) -> [(Jmp, [Imm(Lbl(lbl))])]
-  | Cbr(Const(c), lbl1, lbl2) -> [
-      (Cmpq, [Imm(Lit(c)); Imm(Lit(1L))]);
-      (J Eq, [Imm(Lbl(lbl1))]);
-      (Jmp, [Imm(Lbl(lbl2))])
-    ]
-  | _ -> failwith "compile_terminator not implemented"
+  | Cbr(cndOp, lbl1, lbl2) -> 
+    let compileCndIns = compileCndIns ctxt.layout cndOp in
+    let checkCndOpIns = (Cmpq, [Imm(Lit(1L)); Reg(Rax)]) in
+    let handleTrueIns = (J Eq, [Imm(Lbl(lbl1))]) in 
+    let handleFalseIns = (Jmp, [Imm(Lbl(lbl2))]) in
+    [compileCndIns; checkCndOpIns; handleTrueIns; handleFalseIns]
+  | _ -> failwith "kill both of us"
 
 (* compiling blocks --------------------------------------------------------- *)
 
