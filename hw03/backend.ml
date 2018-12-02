@@ -10,7 +10,6 @@ open X86
    plan for implementing the compiler is provided on the project web page. 
 *)
 
-
 (* helpers ------------------------------------------------------------------ *)
 
 (* Map LL comparison operations to X86 condition codes *)
@@ -32,13 +31,13 @@ let calleeSaveReg = [Rbx; R12; R13; R14; R15]
 let callerSaveReg = [Rax; Rcx; Rdx; Rsi; Rdi; Rsp; R08; R09; R10; R11]
 
 let numArgsStoredInReg = 6
-let firstSixArgRegMap = function
-  | 0 -> Rdi
-  | 1 -> Rsi
-  | 2 -> Rdx
-  | 3 -> Rcx
-  | 4 -> R08
-  | 5 -> R09
+let argRegMap = function
+  | 0 -> Reg Rdi
+  | 1 -> Reg Rsi
+  | 2 -> Reg Rdx
+  | 3 -> Reg Rcx
+  | 4 -> Reg R08
+  | 5 -> Reg R09
   | _ -> failwith "only for the first six args"
 
 let rec first n l =
@@ -152,9 +151,26 @@ let compile_operand (ctxt : ctxt) (dest : X86.operand) : Ll.operand -> ins =
    [ NOTE: Don't forget to preserve caller-save registers (only if
    needed). ]
 *)
-
-
-
+let compile_call ctxt uid fn args = 
+  let compile_operand = compile_operand ctxt in
+  let args = args |> List.map (fun (_, src) -> src) in
+  let pushCallerSaveRegIns = callerSaveReg |> List.map pushRegIntoStack in
+  let moveFirstSixArgsIns = args |> first numArgsStoredInReg |> List.mapi (fun i src -> compile_operand (argRegMap i) src) in
+  let moveRemainingArgsInRevIns = 
+    args
+    |> after numArgsStoredInReg
+    |> List.rev
+    |> List.map (fun  src -> [compile_operand (Reg Rax) src; (Pushq, [(Reg Rax)])])
+    |> List.flatten
+  in
+  let invoke = [compile_operand (Reg Rax) fn; (Callq, [Reg Rax]); (Movq, [(Reg Rax); lookup ctxt.layout uid])] in
+  let removeArgsFromStack =
+    let numArgsInStack = args |> after numArgsStoredInReg |> List.length in
+    let offset = -wordSize * numArgsInStack in
+    [(Addq, [Imm(Lit(Int64.of_int(offset))); (Reg Rsp)])]
+  in
+  let restoreCallerSaveRegIns = callerSaveReg |> List.rev |> List.map (fun reg -> (Popq, [(Reg reg)])) in
+  pushCallerSaveRegIns @ moveFirstSixArgsIns @ moveRemainingArgsInRevIns @ invoke @ removeArgsFromStack @ restoreCallerSaveRegIns
 
 (* compiling getelementptr (gep)  ------------------------------------------- *)
 
@@ -180,9 +196,6 @@ let compile_operand (ctxt : ctxt) (dest : X86.operand) : Ll.operand -> ins =
 *)
 let rec size_ty (tdecls : (tid * ty) list) t : int =
   failwith "size_ty not implemented"
-
-
-
 
 (* Generates code that computes a pointer value.  
 
@@ -211,8 +224,6 @@ let rec size_ty (tdecls : (tid * ty) list) t : int =
 *)
 let compile_gep (ctxt : ctxt) (op : Ll.ty * Ll.operand) (path: Ll.operand list) : ins list =
   failwith "compile_gep not implemented"
-
-
 
 (* compiling instructions  -------------------------------------------------- *)
 
@@ -283,25 +294,7 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
     let loadOpIns = compile_operand (Reg Rax) op in
     let storeToUid = (Movq, [(Reg Rax); (lookup layout uid)]) in
     [loadOpIns; storeToUid]
-  | Call(ty, fn, args) ->
-    let args = args |> List.map (fun (_, src) -> src) in
-    let pushCallerSaveRegIns = callerSaveReg |> List.map pushRegIntoStack in
-    let moveFirstSixArgsIns = args |> first numArgsStoredInReg |> List.mapi (fun i src -> compile_operand (Reg (firstSixArgRegMap i)) src) in
-    let moveRemainingArgsInRevIns = 
-      args
-      |> after numArgsStoredInReg
-      |> List.rev
-      |> List.map (fun  src -> [compile_operand (Reg Rax) src; (Pushq, [(Reg Rax)])])
-      |> List.flatten
-    in
-    let invoke = [compile_operand (Reg Rax) fn; (Callq, [Reg Rax]); (Movq, [(Reg Rax); lookup layout uid])] in
-    let removeArgsFromStack =
-      let numArgsInStack = args |> after numArgsStoredInReg |> List.length in
-      let offset = -wordSize * numArgsInStack in
-      [(Addq, [Imm(Lit(Int64.of_int(offset))); (Reg Rsp)])]
-    in
-    let restoreCallerSaveRegIns = callerSaveReg |> List.rev |> List.map (fun reg -> (Popq, [(Reg reg)])) in
-    pushCallerSaveRegIns @ moveFirstSixArgsIns @ moveRemainingArgsInRevIns @ invoke @ removeArgsFromStack @ restoreCallerSaveRegIns
+  | Call(ty, fn, args) -> compile_call ctxt uid fn args 
   | _ ->failwith "compile_insn not implemented"
 
 (* compiling terminators  --------------------------------------------------- *)
@@ -322,13 +315,6 @@ let clearStackIns = [(Movq, [Reg(Rbp); Reg(Rsp)])]
 let restoreCallerStackBasePointerIns = [(Popq, [Reg(Rbp)])]
 let exitCalleeIns = restoreCalleeSaveRegIns @ clearStackIns @ restoreCallerStackBasePointerIns @ [(Retq, [])]
 
-
-let compileCndIns layout op =
-  match op with
-  | Const(c) -> (Movq, [Imm(Lit(c)); (Reg Rax)])
-  | Id(uid) -> (Movq, [lookup layout uid; (Reg Rax)])
-  | _ -> failwith "kill me"
-
 let compile_terminator (ctxt : ctxt) (t : terminator) : X86.ins list =
   match t with
   | Ret(_, None) -> exitCalleeIns
@@ -336,7 +322,7 @@ let compile_terminator (ctxt : ctxt) (t : terminator) : X86.ins list =
   | Ret(_, Some(Const(c))) -> (Movq, [Imm(Lit(c)); Reg(Rax)])::exitCalleeIns
   | Br(lbl) -> [(Jmp, [Imm(Lbl(lbl))])]
   | Cbr(cndOp, lbl1, lbl2) -> 
-    let compileCndIns = compileCndIns ctxt.layout cndOp in
+    let compileCndIns = compile_operand ctxt (Reg Rax) cndOp in
     let checkCndOpIns = (Cmpq, [Imm(Lit(1L)); Reg(Rax)]) in
     let handleTrueIns = (J Eq, [Imm(Lbl(lbl1))]) in 
     let handleFalseIns = (Jmp, [Imm(Lbl(lbl2))]) in
@@ -357,11 +343,8 @@ let compile_block (ctxt : ctxt) (blk : block) : ins list =
 let compile_lbl_block lbl (ctxt : ctxt) (blk : block) : elem =
   Asm.text lbl (compile_block ctxt blk)
 
-
-
 (* compile_fdecl ------------------------------------------------------------ *)
 
-(* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> *)
 (* This helper function computes the location of the nth incoming
    function argument: either in a register or relative to %rbp,
    according to the calling conventions.  You might find it useful for
@@ -371,15 +354,10 @@ let compile_lbl_block lbl (ctxt : ctxt) (blk : block) : elem =
 *)
 let arg_loc (n : int) : operand =
   if n < numArgsStoredInReg
-  then Reg(firstSixArgRegMap n)
-  else 
-    (* R10 is used as a static chain pointer in case of nested functions *)
-    (* + 2 accounts for the instruction pointer and base pointer stored on the stack *)
-    fromRbp((n - numArgsStoredInReg + 2) * wordSize)
+  then argRegMap n
+  (* + 2 accounts for the instruction pointer and base pointer stored on the stack *)
+  else fromRbp((n - numArgsStoredInReg + 2) * wordSize)
 
-(* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< *)
-
-(* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> *)
 (* We suggest that you create a helper function that computes the 
    stack layout for a given function declaration.
 
@@ -387,7 +365,6 @@ let arg_loc (n : int) : operand =
    - in this (inefficient) compilation strategy, each local id 
      is also stored as a stack slot.
    - see the discusion about locals 
-
 *)
 let blockLayout ({insns; term=(uid, _)}: block) (offset: offset): (layout * offset) =
   let insnsLayout = insns |> List.mapi (fun ind (uid, _) -> (uid, fromRbp(-wordSize * ind + offset))) in
@@ -408,9 +385,7 @@ let stack_layout (args: uid list) ((block, lbled_blocks): cfg) : layout =
     ) ([], offset) lbled_blocks
   in
   argsLayout @ entryBlockLayout @ lbledBlocksLayout
-(* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< *)
 
-(* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> *)
 (* The code for the entry-point of a function must do several things:
 
    - since our simple compiler maps local %uids to stack slots,
@@ -426,31 +401,24 @@ let stack_layout (args: uid list) ((block, lbled_blocks): cfg) : layout =
 
    - the function entry code should allocate the stack storage needed
      to hold all of the local stack slots.
-*)
 
-let restoreCalleeSaveReg = calleeSaveReg |> List.mapi(fun i reg -> Movq, [fromRbp (-wordSize * i); Reg reg])
+   -------------------------------------------------------------------
+   Personal Notes:
 
-(* Callee return ins *)
-let cleanStack = Movq, [Reg(Rbp); Reg(Rsp)]
-let restoreCallerBasePointer = Popq, [Reg(Rbp)]
-let returnToCaller = Retq, []
-let calleeReturnIns = restoreCalleeSaveReg @ [cleanStack; restoreCallerBasePointer; returnToCaller]
+   The invariant when control is transfered to the Callee:
+   - Rsp points to the top of the caller stack frame which holds the Rip before the call
+   - Rbp is the base pointer of the caller stack frame
+   - Rip points to the first instruction of the Callee
 
-(*
-The invariant when control is transfered to the Callee:
-- Rsp points to the top of the caller stack frame which holds the Rip before the call
-- Rbp is the base pointer of the caller stack frame
-- Rip points to the first instruction of the Callee
-
-In Callee:
-- Push the base pointer into the stack
-- Update the base pointer to point to the stack pointer and so create a new stack frame
-- Push all the Callee save registers into the stack
-- << CFG >>
-- Restore all the Callee save registers
-- Clean the Callee stack frame
-- Restore the base pointer of the Caller stack frame
-- Return control to Caller
+   In Callee:
+   - Push the base pointer into the stack
+   - Update the base pointer to point to the stack pointer and so create a new stack frame
+   - Push all the Callee save registers into the stack
+   - << CFG >>
+   - Restore all the Callee save registers
+   - Clean the Callee stack frame
+   - Restore the base pointer of the Caller stack frame
+   - Return control to Caller
 *)
 let copyParamsIns (stackLayout: layout) (f_param: uid list): ins list =
   let aux = fun ind uid -> 
@@ -465,25 +433,22 @@ let compile_fdecl (tdecls : (tid * ty) list) (name : gid) { f_ty; f_param; f_cfg
   let layout = stack_layout f_param f_cfg in
   let context: ctxt = {tdecls; layout} in
   let stackPointerOffset = -wordSize * List.length layout in
-  (* Start + Entry Block *)
+  (* entry block *)
   let pushBasePointer = pushRegIntoStack Rbp in
   let newStackFrame = Movq, [Reg(Rsp); Reg(Rbp)] in
   let pushCalleeSaveReg = calleeSaveReg |> List.map pushRegIntoStack in
   let newStackPointerIns = (Addq, [Imm(Lit(Int64.of_int(stackPointerOffset))); Reg(Rsp)]) in
   let copyParamIntoStack = copyParamsIns layout f_param in
+  let entryPointIns = pushBasePointer::newStackFrame::pushCalleeSaveReg @  newStackPointerIns::copyParamIntoStack in
   let entryBlockIns = compile_block context entryBlock in
-  let startIns = pushBasePointer::newStackFrame::pushCalleeSaveReg @ [newStackPointerIns] @ copyParamIntoStack @ entryBlockIns in
-  let elm = {
+  let startElm = {
     lbl= Platform.mangle name;
     global=true;
-    asm=Text(startIns)
+    asm=Text(entryPointIns @ entryBlockIns)
   } in
-  (* Labeled Blocks *)
-  let lbledBlocksIns = lbledBlocks |> List.map (fun (lbl, blk) -> compile_lbl_block lbl context blk) in
-  (* Return *)
-  elm::lbledBlocksIns
-
-(* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< *)
+  (* labeled blocks *)
+  let lbledBlocksElm = lbledBlocks |> List.map (fun (lbl, blk) -> compile_lbl_block lbl context blk) in
+  startElm::lbledBlocksElm
 
 (* compile_gdecl ------------------------------------------------------------ *)
 (* Compile a global value into an X86 global data declaration and map
@@ -498,22 +463,8 @@ let rec compile_ginit = function
 
 and compile_gdecl (_, g) = compile_ginit g
 
-
 (* compile_prog ------------------------------------------------------------- *)
 let compile_prog {tdecls; gdecls; fdecls} : X86.prog =
   let g = fun (lbl, gdecl) -> Asm.data (Platform.mangle lbl) (compile_gdecl gdecl) in
   let f = fun (name, fdecl) -> compile_fdecl tdecls name fdecl in
   (List.map g gdecls) @ (List.map f fdecls |> List.flatten)
-
-
-(* NOTES -------------------------------------------------------------------- *)
-
-(*
-In Caller
-- Push all Caller save register into the stack
-- Move all the arguments
-- Call
-- Clean arguments to the Callee
-- Restore Caller save registers
-- ...
-*)
