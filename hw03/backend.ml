@@ -278,10 +278,10 @@ let exitCalleeIns = restoreCalleeSaveRegIns @ clearStackIns @ restoreCallerStack
 
 
 let compile_terminator (ctxt : ctxt) (t : terminator) : X86.ins list =
-  let returnValueIns = compile_operand ctxt (Reg Rax) in
   match t with
   | Ret(_, None) -> exitCalleeIns
-  | Ret(_, Some(retVal)) -> (returnValueIns retVal)::exitCalleeIns
+  | Ret(_, Some(Id(uid))) -> (Movq, [lookup ctxt.layout uid; Reg(Rax)])::exitCalleeIns
+  | Ret(_, Some(Const(c))) -> (Movq, [Imm(Lit(c)); Reg(Rax)])::exitCalleeIns
   | Br(lbl) -> [(Jmp, [Imm(Lbl(lbl))])]
   | Cbr(Const(c), lbl1, lbl2) -> [
       (Cmpq, [Imm(Lit(c)); Imm(Lit(1L))]);
