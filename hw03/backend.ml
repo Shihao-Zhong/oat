@@ -31,6 +31,7 @@ let pushRegIntoStack reg = Pushq, [Reg(reg)]
 let calleeSaveReg = [Rbx; R12; R13; R14; R15]
 let callerSaveReg = [Rax; Rcx; Rdx; Rsi; Rdi; Rsp; R08; R09; R10; R11]
 
+let numArgsStoredInReg = 6
 let firstSixArgRegMap = function
   | 0 -> Rdi
   | 1 -> Rsi
@@ -267,6 +268,25 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
     let loadOpIns = compile_operand (Reg Rax) op in
     let storeToUid = (Movq, [(Reg Rax); (lookup layout uid)]) in
     [loadOpIns; storeToUid]
+  | Call(ty, fn, args) ->
+    let pushCallerSaveRegIns = callerSaveReg |> List.map pushRegIntoStack in
+    let moveArgs i src =
+      if i < numArgsStoredInReg
+      then [compile_operand (Reg (firstSixArgRegMap i)) src]
+      else [compile_operand (Reg Rax) src; (Pushq, [(Reg Rax)])]
+    in
+    let moveArgsIns = args |> List.map (fun (_, src) -> src) |> List.mapi moveArgs |> List.flatten in
+    let invoke = [compile_operand (Reg Rax) fn; (Callq, [Reg Rax])] in
+    let removeArgsFromStack = (
+      let numArgs = List.length args in
+      let offset = -wordSize * (numArgs - numArgsStoredInReg) in 
+      if numArgs > numArgsStoredInReg
+      then [(Addq, [Imm(Lit(Int64.of_int(offset))); (Reg Rsp)])]
+      else []
+    )
+    in
+    let restoreCallerSaveRegIns = callerSaveReg |> List.rev |> List.map (fun reg -> (Popq, [(Reg reg)])) in
+    pushCallerSaveRegIns @ moveArgsIns @ invoke @ removeArgsFromStack @ restoreCallerSaveRegIns
   | _ ->failwith "compile_insn not implemented"
 
 
@@ -337,7 +357,6 @@ let compile_lbl_block lbl (ctxt : ctxt) (blk : block) : elem =
    [ NOTE: the first six arguments are numbered 0 .. 5 ]
 *)
 let arg_loc (n : int) : operand =
-  let numArgsStoredInReg = 6 in
   if n < numArgsStoredInReg
   then Reg(firstSixArgRegMap n)
   else 
