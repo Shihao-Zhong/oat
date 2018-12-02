@@ -276,7 +276,7 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
       else [compile_operand (Reg Rax) src; (Pushq, [(Reg Rax)])]
     in
     let moveArgsIns = args |> List.map (fun (_, src) -> src) |> List.mapi moveArgs |> List.flatten in
-    let invoke = [compile_operand (Reg Rax) fn; (Callq, [Reg Rax])] in
+    let invoke = [compile_operand (Reg Rax) fn; (Callq, [Reg Rax]); (Movq, [(Reg Rax); lookup layout uid])] in
     let removeArgsFromStack = (
       let numArgs = List.length args in
       let offset = -wordSize * (numArgs - numArgsStoredInReg) in 
