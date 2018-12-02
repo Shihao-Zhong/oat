@@ -41,6 +41,21 @@ let firstSixArgRegMap = function
   | 5 -> R09
   | _ -> failwith "only for the first six args"
 
+let rec first n l =
+  match (n, l) with
+  | (0, l) -> []
+  | (_, []) -> []
+  | (n, hd::tail) -> hd::(first (n - 1) tail)
+
+let rec after n l =
+  match (n, l) with
+  | (0, l) -> l
+  | (_, []) -> []
+  | (n, hd::tail) -> after (n - 1) tail
+
+let splitAfter n l =
+  (first n l, after n l)
+
 (* locals and layout -------------------------------------------------------- *)
 
 (* One key problem in compiling the LLVM IR is how to map its local
@@ -269,27 +284,25 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
     let storeToUid = (Movq, [(Reg Rax); (lookup layout uid)]) in
     [loadOpIns; storeToUid]
   | Call(ty, fn, args) ->
+    let args = args |> List.map (fun (_, src) -> src) in
     let pushCallerSaveRegIns = callerSaveReg |> List.map pushRegIntoStack in
-    let moveArgs i src =
-      if i < numArgsStoredInReg
-      then [compile_operand (Reg (firstSixArgRegMap i)) src]
-      else [compile_operand (Reg Rax) src; (Pushq, [(Reg Rax)])]
+    let moveFirstSixArgsIns = args |> first numArgsStoredInReg |> List.mapi (fun i src -> compile_operand (Reg (firstSixArgRegMap i)) src) in
+    let moveRemainingArgsInRevIns = 
+      args
+      |> after numArgsStoredInReg
+      |> List.rev
+      |> List.map (fun  src -> [compile_operand (Reg Rax) src; (Pushq, [(Reg Rax)])])
+      |> List.flatten
     in
-    let moveArgsIns = args |> List.map (fun (_, src) -> src) |> List.mapi moveArgs |> List.flatten in
     let invoke = [compile_operand (Reg Rax) fn; (Callq, [Reg Rax]); (Movq, [(Reg Rax); lookup layout uid])] in
-    let removeArgsFromStack = (
-      let numArgs = List.length args in
-      let offset = -wordSize * (numArgs - numArgsStoredInReg) in 
-      if numArgs > numArgsStoredInReg
-      then [(Addq, [Imm(Lit(Int64.of_int(offset))); (Reg Rsp)])]
-      else []
-    )
+    let removeArgsFromStack =
+      let numArgsInStack = args |> after numArgsStoredInReg |> List.length in
+      let offset = -wordSize * numArgsInStack in
+      [(Addq, [Imm(Lit(Int64.of_int(offset))); (Reg Rsp)])]
     in
     let restoreCallerSaveRegIns = callerSaveReg |> List.rev |> List.map (fun reg -> (Popq, [(Reg reg)])) in
-    pushCallerSaveRegIns @ moveArgsIns @ invoke @ removeArgsFromStack @ restoreCallerSaveRegIns
+    pushCallerSaveRegIns @ moveFirstSixArgsIns @ moveRemainingArgsInRevIns @ invoke @ removeArgsFromStack @ restoreCallerSaveRegIns
   | _ ->failwith "compile_insn not implemented"
-
-
 
 (* compiling terminators  --------------------------------------------------- *)
 
