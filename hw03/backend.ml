@@ -160,7 +160,11 @@ let compile_call ctxt uid fn args =
   let compile_operand = compile_operand ctxt in
   let args = args |> List.map (fun (_, src) -> src) in
   let pushCallerSaveRegIns = callerSaveReg |> List.map pushRegIntoStack in
-  let moveFirstSixArgsIns = args |> first numArgsStoredInReg |> List.mapi (fun i src -> compile_operand (argRegMap i) src) in
+  let moveFirstSixArgsIns =
+    args
+    |> first numArgsStoredInReg
+    |> List.mapi (fun i src -> compile_operand (argRegMap i) src)
+  in
   let moveRemainingArgsInRevIns = 
     args
     |> after numArgsStoredInReg
@@ -168,7 +172,13 @@ let compile_call ctxt uid fn args =
     |> List.map (fun  src -> [compile_operand (Reg Rax) src; (Pushq, [(Reg Rax)])])
     |> List.flatten
   in
-  let invoke = [compile_operand (Reg Rax) fn; (Callq, [Reg Rax]); (Movq, [(Reg Rax); lookup ctxt.layout uid])] in
+  let invoke = (
+    let pushCallAddrToRax = compile_operand (Reg Rax) fn in
+    let callFnPointedToByRax = Callq, [Reg Rax] in
+    let storeTheReturnValue = Movq, [(Reg Rax); lookup ctxt.layout uid] in
+    [pushCallAddrToRax; callFnPointedToByRax; storeTheReturnValue]
+  )
+  in
   let removeArgsFromStack =
     let numArgsInStack = args |> after numArgsStoredInReg |> List.length in
     let offset = -wordSize * numArgsInStack in
