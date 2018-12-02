@@ -417,13 +417,15 @@ let compile_fdecl (tdecls : (tid * ty) list) (name : gid) { f_ty; f_param; f_cfg
   let (entryBlock, lbledBlocks) = f_cfg in
   let layout = stack_layout f_param f_cfg in
   let context: ctxt = {tdecls; layout} in
+  let stackPointerOffset = -wordSize * List.length layout in
   (* Start + Entry Block *)
   let pushBasePointer = pushRegIntoStack Rbp in
   let newStackFrame = Movq, [Reg(Rsp); Reg(Rbp)] in
   let pushCalleeSaveReg = calleeSaveReg |> List.map pushRegIntoStack in
+  let newStackPointerIns = (Addq, [Imm(Lit(Int64.of_int(stackPointerOffset))); Reg(Rsp)]) in
   let copyParamIntoStack = copyParamsIns layout f_param in
   let entryBlockIns = compile_block context entryBlock in
-  let startIns = pushBasePointer::newStackFrame::pushCalleeSaveReg @ copyParamIntoStack @ entryBlockIns in
+  let startIns = pushBasePointer::newStackFrame::pushCalleeSaveReg @ [newStackPointerIns] @ copyParamIntoStack @ entryBlockIns in
   let elm = {
     lbl= Platform.mangle name;
     global=true;
