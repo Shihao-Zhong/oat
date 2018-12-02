@@ -21,39 +21,10 @@ let compile_cnd = function
   | Ll.Sgt -> X86.Gt
   | Ll.Sge -> X86.Ge
 
-
-let wordSize = 8
-type offset = int
-let fromRbp = fun i -> Ind3(Lit(Int64.of_int i), Rbp)
-let pushRegIntoStack reg = Pushq, [Reg(reg)]
-
-let calleeSaveReg = [Rbx; R12; R13; R14; R15]
-let callerSaveReg = [Rax; Rcx; Rdx; Rsi; Rdi; Rsp; R08; R09; R10; R11]
-
-let numArgsStoredInReg = 6
-let argRegMap = function
-  | 0 -> Reg Rdi
-  | 1 -> Reg Rsi
-  | 2 -> Reg Rdx
-  | 3 -> Reg Rcx
-  | 4 -> Reg R08
-  | 5 -> Reg R09
-  | _ -> failwith "only for the first six args"
-
-let rec first n l =
-  match (n, l) with
-  | (0, l) -> []
-  | (_, []) -> []
-  | (n, hd::tail) -> hd::(first (n - 1) tail)
-
-let rec after n l =
-  match (n, l) with
-  | (0, l) -> l
-  | (_, []) -> []
-  | (n, hd::tail) -> after (n - 1) tail
-
-let splitAfter n l =
-  (first n l, after n l)
+let compile_biop = function
+  | Add -> Addq | Sub -> Subq | Mul -> Imulq
+  | Shl -> Shlq | Lshr -> Shrq | Ashr -> Sarq
+  | And -> Andq | Or -> Orq | Xor -> Xorq 
 
 (* locals and layout -------------------------------------------------------- *)
 
@@ -91,6 +62,40 @@ type ctxt = { tdecls : (tid * ty) list
 
 (* useful for looking up items in tdecls or layouts *)
 let lookup m x = List.assoc x m
+
+
+(* other helper function *)
+let wordSize = 8
+type offset = int
+let fromRbp = fun i -> Ind3(Lit(Int64.of_int i), Rbp)
+let pushRegIntoStack reg = Pushq, [Reg(reg)]
+
+let calleeSaveReg = [Rbx; R12; R13; R14; R15]
+let callerSaveReg = [Rax; Rcx; Rdx; Rsi; Rdi; Rsp; R08; R09; R10; R11]
+
+let numArgsStoredInReg = 6
+let argRegMap = function
+  | 0 -> Reg Rdi
+  | 1 -> Reg Rsi
+  | 2 -> Reg Rdx
+  | 3 -> Reg Rcx
+  | 4 -> Reg R08
+  | 5 -> Reg R09
+  | _ -> failwith "only for the first six args"
+
+let rec first n l =
+  match (n, l) with
+  | (0, l) -> []
+  | (_, []) -> []
+  | (n, hd::tail) -> hd::(first (n - 1) tail)
+
+let rec after n l =
+  match (n, l) with
+  | (0, l) -> l
+  | (_, []) -> []
+  | (n, hd::tail) -> after (n - 1) tail
+
+let splitAfter n l = (first n l, after n l)
 
 
 (* compiling operands  ------------------------------------------------------ *)
@@ -252,21 +257,10 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
   let {tdecls; layout} = ctxt in
   let compile_operand = compile_operand ctxt in
   match i with
-  | Binop(bop, ty, op1, dest) ->
-    let x86Bop = match bop with
-      | Add -> Addq
-      | Sub -> Subq
-      | Mul -> Imulq
-      | Shl -> Shlq
-      | Lshr -> Shrq
-      | Ashr -> Sarq
-      | And -> Andq
-      | Or -> Orq
-      | Xor -> Xorq 
-    in
+  | Binop(biop, ty, op1, dest) ->
     let loadOp1Ins = compile_operand (Reg Rax) op1 in
     let loadDestIns = compile_operand (Reg Rcx) dest in
-    let exectBopIns = (x86Bop, [(Reg Rcx); (Reg Rax)]) in
+    let exectBopIns = (compile_biop biop, [(Reg Rcx); (Reg Rax)]) in
     let saveResToUidIns = (Movq, [(Reg Rax); (lookup layout uid)]) in
     [loadOp1Ins; loadDestIns; exectBopIns; saveResToUidIns]
   | Icmp(cnd, ty, op1, op2) ->
