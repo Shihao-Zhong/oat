@@ -105,7 +105,7 @@ let compile_operand (ctxt : ctxt) (dest : X86.operand) : Ll.operand -> ins =
       (Movq, [src; dest])
     | Gid(gid) -> 
       let mangled = Platform.mangle(gid) in
-      (Leaq, [Ind1(Lbl(mangled)); dest])
+      (Leaq, [Ind3(Lbl(mangled), Rip); dest])
 
 (* compiling call  ---------------------------------------------------------- *)
 
@@ -245,12 +245,14 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
     [allocWordIns; storeResIns]
   | Load(ty, p) ->
     let moveToRegIns = compile_operand (Reg Rax) p in
-    let copyFromRegToDestIns = (Movq, [Reg(Rax); (lookup layout uid)]) in
+    let interStoreIns = (Movq, [Ind2(Rax); (Reg R08)]) in
+    let copyFromRegToDestIns = (Movq, [(Reg R08); (lookup layout uid)]) in
     [moveToRegIns; copyFromRegToDestIns]
-  | Store(ty, op1, Id(op2)) -> 
+  | Store(ty, op1, op2) -> 
     let loadOp1Ins = compile_operand (Reg Rax) op1 in
-    let storeOp1InOp2Ins = (Movq, [Reg(Rax); (lookup layout op2)]) in
-    [loadOp1Ins; storeOp1InOp2Ins]
+    let loadOp2Ins = compile_operand (Reg R08) op2 in
+    let storeOp1InOp2Ins = (Movq, [Reg(Rax); Ind2(R08)]) in
+    [loadOp1Ins; loadOp2Ins; storeOp1InOp2Ins]
   | _ ->failwith "compile_insn not implemented"
 
 
