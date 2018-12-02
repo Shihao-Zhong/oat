@@ -173,10 +173,10 @@ let compile_call ctxt uid fn args =
     |> List.flatten
   in
   let invoke = (
-    let pushCallAddrToRax = compile_operand (Reg Rax) fn in
+    let pushFnAddrToRax = compile_operand (Reg Rax) fn in
     let callFnPointedToByRax = Callq, [Reg Rax] in
     let storeTheReturnValue = Movq, [(Reg Rax); lookup ctxt.layout uid] in
-    [pushCallAddrToRax; callFnPointedToByRax; storeTheReturnValue]
+    [pushFnAddrToRax; callFnPointedToByRax; storeTheReturnValue]
   )
   in
   let removeArgsFromStack =
