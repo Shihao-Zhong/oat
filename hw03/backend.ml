@@ -253,6 +253,10 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
     let loadOp2Ins = compile_operand (Reg R08) op2 in
     let storeOp1InOp2Ins = (Movq, [Reg(Rax); Ind2(R08)]) in
     [loadOp1Ins; loadOp2Ins; storeOp1InOp2Ins]
+  | Bitcast(t1, op, t2) ->
+    let loadOpIns = compile_operand (Reg Rax) op in
+    let storeToUid = (Movq, [(Reg Rax); (lookup layout uid)]) in
+    [loadOpIns; storeToUid]
   | _ ->failwith "compile_insn not implemented"
 
 
