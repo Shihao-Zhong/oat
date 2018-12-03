@@ -250,7 +250,7 @@ let offset_into_array_ins index finalPointer tdecls ty =
   let calcNewPointerIns = (Addq, [Reg Rax; finalPointer]) in
   [moveIndToRax; calcOffsetIns; calcNewPointerIns]
 
-let offset_into_struct_ins index finalPointer tdecls (types: ty list) = 
+let offset_into_struct_ins finalPointer tdecls types index = 
   let priorTypes = first index types in
   let offset = priorTypes |> List.fold_left (fun acc ty -> acc + (size_ty tdecls ty)) 0 in 
   let calcNewPointerIns = (Addq, [Imm(Lit(Int64.of_int(offset))); finalPointer]) in
@@ -263,6 +263,25 @@ let compile_gep (ctxt : ctxt) ((ty, op) : Ll.ty * Ll.operand) (path: Ll.operand 
   (* curry helper functions *)
   let compile_operand = compile_operand ctxt in
   let offset_into_array_ins = offset_into_array_ins indexOp finalPtrOp ctxt.tdecls in
+  let offset_into_struct_ins = offset_into_struct_ins finalPtrOp ctxt.tdecls in
+  (** rec aux *)
+  let rec aux = function 
+  | (_, []) -> []
+  | (Struct(types), Const(c)::tail) -> (
+    let c = Int64.to_int c in
+    let prefixIns = offset_into_struct_ins types c in
+    let ty = match (after c types) with
+    | hd::tail -> hd
+    | _ -> failwith "Unexpeted Struct type"
+    in
+    prefixIns @ (aux (ty, tail))
+  )
+  | (Array(_, ty), hd::tail) ->
+    let compileIndexOp = compile_operand indexOp hd in
+    let prefixIns = offset_into_array_ins ty in
+    prefixIns @ (aux (ty, tail))
+  | _ -> failwith "unexpected GEP argument type"
+  in
   (* Check types *)
   let (firstInd, rest) = match path with
     | hd::tail -> (hd, tail)
@@ -276,7 +295,8 @@ let compile_gep (ctxt : ctxt) ((ty, op) : Ll.ty * Ll.operand) (path: Ll.operand 
   let storeFirstIndIns = compile_operand indexOp firstInd in
   let storeFinalPtrIns = compile_operand finalPtrOp op in
   let addFirstOffsetToPtr = offset_into_array_ins ty in
-  [storeFirstIndIns; storeFinalPtrIns] @ addFirstOffsetToPtr
+  let compilePath = aux (ty, rest) in
+  [storeFirstIndIns; storeFinalPtrIns] @ addFirstOffsetToPtr @ compilePath
 
 
 (* compiling instructions  -------------------------------------------------- *)
