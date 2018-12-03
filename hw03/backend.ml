@@ -243,17 +243,34 @@ let rec size_ty (tdecls : (tid * ty) list) t : int =
       by the path so far
 *)
 
+let offset_into_array_ins index finalPointer tdecls ty = 
+  let size = size_ty tdecls ty in
+  let moveIndToRax = (Movq, [index; (Reg Rax)]) in
+  let calcOffsetIns = (Imulq, [Imm(Lit(Int64.of_int(size))); (Reg Rax)]) in
+  let calcNewPointerIns = (Addq, [Reg Rax; finalPointer]) in
+  [moveIndToRax; calcOffsetIns; calcNewPointerIns]
+
 let compile_gep (ctxt : ctxt) ((ty, op) : Ll.ty * Ll.operand) (path: Ll.operand list) : ins list =
-  let initInd::rest = path in
-  let tySize = size_ty ctxt.tdecls ty in
+  (* definitions *)
+  let finalPtrOp = Reg R08 in
+  let indexOp = Reg R09 in
+  (* curry helper functions *)
   let compile_operand = compile_operand ctxt in
-  let storeInitIndIns = compile_operand (Reg Rax) initInd in
-  let calcOffsetIns = (Imulq, [Imm(Lit(Int64.of_int(tySize))); (Reg Rax)]) in
-  let storeOpIns = compile_operand (Reg R08) op in
-  let calcAddrIns = (Addq, [(Reg R08); (Reg Rax)]) in
-  let storeInitOffsetInsns = [storeInitIndIns; calcOffsetIns; storeOpIns; calcAddrIns] in
-  []
-  (* storeInitOffsetInsns @ compile_gep_helper ctxt  *)
+  let offset_into_array_ins = offset_into_array_ins indexOp finalPtrOp ctxt.tdecls in
+  (* Check types *)
+  let (firstInd, rest) = match path with
+    | hd::tail -> (hd, tail)
+    | [] -> failwith "GEP path should not be empty"
+  in 
+  let ty = match ty with
+    | Ptr(ty) -> ty
+    | _ -> failwith "GEP should be called with a Ptr type"
+  in
+  (* First offset instructions *)
+  let storeFirstIndIns = compile_operand indexOp firstInd in
+  let storeFinalPtrIns = compile_operand finalPtrOp op in
+  let addFirstOffsetToPtr = offset_into_array_ins ty in
+  [storeFirstIndIns; storeFinalPtrIns] @ addFirstOffsetToPtr
 
 
 (* compiling instructions  -------------------------------------------------- *)
