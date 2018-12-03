@@ -210,7 +210,12 @@ let compile_call ctxt uid fn args =
      Your function should simply return 0 in those cases
 *)
 let rec size_ty (tdecls : (tid * ty) list) t : int =
-  failwith "size_ty not implemented"
+  match t with
+  | Void | I8 | Fun _ -> 0 
+  | I1 | I64 | Ptr _ -> wordSize
+  | Struct tys -> tys |> List.fold_left (fun acc ty -> acc + (size_ty tdecls ty)) 0
+  | Array(len, ty) -> len * (size_ty tdecls ty)
+  | Namedt(tid) -> size_ty tdecls (lookup tdecls tid)
 
 (* Generates code that computes a pointer value.  
 
