@@ -256,7 +256,7 @@ let offset_into_struct_ins finalPointer tdecls types index =
   let calcNewPointerIns = (Addq, [Imm(Lit(Int64.of_int(offset))); finalPointer]) in
   [calcNewPointerIns]
 
-let compile_gep (ctxt : ctxt) ((ty, op) : Ll.ty * Ll.operand) (path: Ll.operand list) : ins list =
+let compile_gep (uid : Ll.uid) (ctxt : ctxt) ((ty, op) : Ll.ty * Ll.operand) (path: Ll.operand list) : ins list =
   (* definitions *)
   let finalPtrOp = Reg R08 in
   let indexOp = Reg R09 in
@@ -297,7 +297,8 @@ let compile_gep (ctxt : ctxt) ((ty, op) : Ll.ty * Ll.operand) (path: Ll.operand 
   let storeFinalPtrIns = compile_operand finalPtrOp op in
   let addFirstOffsetToPtr = offset_into_array_ins ty in
   let compilePath = aux (ty, rest) in
-  [storeFirstIndIns; storeFinalPtrIns] @ addFirstOffsetToPtr @ compilePath
+  let storePtrIns = (Movq, [finalPtrOp; (lookup ctxt.layout uid)]) in
+  [storeFirstIndIns; storeFinalPtrIns] @ addFirstOffsetToPtr @ compilePath @ [storePtrIns]
 
 
 (* compiling instructions  -------------------------------------------------- *)
@@ -359,7 +360,7 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
     let storeToUid = (Movq, [(Reg Rax); (lookup layout uid)]) in
     [loadOpIns; storeToUid]
   | Call(ty, fn, args) -> compile_call ctxt uid fn args
-  | Gep(ty, op, path) -> compile_gep ctxt (ty, op) path
+  | Gep(ty, op, path) -> compile_gep uid ctxt (ty, op) path
 
 (* compiling terminators  --------------------------------------------------- *)
 
