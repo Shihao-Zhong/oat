@@ -266,21 +266,21 @@ let compile_gep (ctxt : ctxt) ((ty, op) : Ll.ty * Ll.operand) (path: Ll.operand 
   let offset_into_struct_ins = offset_into_struct_ins finalPtrOp ctxt.tdecls in
   (** rec aux *)
   let rec aux = function 
-  | (_, []) -> []
-  | (Struct(types), Const(c)::tail) -> (
-    let c = Int64.to_int c in
-    let prefixIns = offset_into_struct_ins types c in
-    let ty = match (after c types) with
-    | hd::tail -> hd
-    | _ -> failwith "Unexpeted Struct type"
-    in
-    prefixIns @ (aux (ty, tail))
-  )
-  | (Array(_, ty), hd::tail) ->
-    let compileIndexOp = compile_operand indexOp hd in
-    let prefixIns = offset_into_array_ins ty in
-    prefixIns @ (aux (ty, tail))
-  | _ -> failwith "unexpected GEP argument type"
+    | (_, []) -> []
+    | (Struct(types), Const(c)::tail) -> (
+        let c = Int64.to_int c in
+        let prefixIns = offset_into_struct_ins types c in
+        let ty = match (after c types) with
+          | hd::tail -> hd
+          | _ -> failwith "Unexpeted Struct type"
+        in
+        prefixIns @ (aux (ty, tail))
+      )
+    | (Array(_, ty), hd::tail) ->
+      let compileIndexOp = compile_operand indexOp hd in
+      let prefixIns = offset_into_array_ins ty in
+      compileIndexOp::prefixIns @ (aux (ty, tail))
+    | _ -> failwith "unexpected GEP argument type"
   in
   (* Check types *)
   let (firstInd, rest) = match path with
