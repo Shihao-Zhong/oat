@@ -489,9 +489,9 @@ let copyParamsIns (stackLayout: layout) (f_param: uid list): ins list =
   let aux = fun ind uid -> 
     let fromOp = arg_loc ind in 
     let toOp = lookup stackLayout uid in
-    (Movq, [fromOp; toOp])
+    [(Movq, [fromOp; Reg Rax]); (Movq, [Reg Rax; toOp])]
   in
-  List.mapi aux f_param
+  f_param |> List.mapi aux |> List.flatten
 
 let compile_fdecl (tdecls : (tid * ty) list) (name : gid) { f_ty; f_param; f_cfg } : X86.prog =
   let (entryBlock, lbledBlocks) = f_cfg in
