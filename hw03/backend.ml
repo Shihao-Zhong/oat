@@ -303,8 +303,8 @@ let compile_insn (ctxt : ctxt) ((uid : uid), (i : insn)) : X86.ins list =
     let loadOpIns = compile_operand (Reg Rax) op in
     let storeToUid = (Movq, [(Reg Rax); (lookup layout uid)]) in
     [loadOpIns; storeToUid]
-  | Call(ty, fn, args) -> compile_call ctxt uid fn args 
-  | _ ->failwith "compile_insn not implemented"
+  | Call(ty, fn, args) -> compile_call ctxt uid fn args
+  | Gep(ty, op, path) -> compile_gep ctxt (ty, op) path
 
 (* compiling terminators  --------------------------------------------------- *)
 
