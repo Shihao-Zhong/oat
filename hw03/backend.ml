@@ -242,8 +242,19 @@ let rec size_ty (tdecls : (tid * ty) list) t : int =
       in (4), but relative to the type f the sub-element picked out
       by the path so far
 *)
-let compile_gep (ctxt : ctxt) (op : Ll.ty * Ll.operand) (path: Ll.operand list) : ins list =
-  failwith "compile_gep not implemented"
+
+let compile_gep (ctxt : ctxt) ((ty, op) : Ll.ty * Ll.operand) (path: Ll.operand list) : ins list =
+  let initInd::rest = path in
+  let tySize = size_ty ctxt.tdecls ty in
+  let compile_operand = compile_operand ctxt in
+  let storeInitIndIns = compile_operand (Reg Rax) initInd in
+  let calcOffsetIns = (Imulq, [Imm(Lit(Int64.of_int(tySize))); (Reg Rax)]) in
+  let storeOpIns = compile_operand (Reg R08) op in
+  let calcAddrIns = (Addq, [(Reg R08); (Reg Rax)]) in
+  let storeInitOffsetInsns = [storeInitIndIns; calcOffsetIns; storeOpIns; calcAddrIns] in
+  []
+  (* storeInitOffsetInsns @ compile_gep_helper ctxt  *)
+
 
 (* compiling instructions  -------------------------------------------------- *)
 
