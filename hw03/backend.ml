@@ -280,6 +280,7 @@ let compile_gep (ctxt : ctxt) ((ty, op) : Ll.ty * Ll.operand) (path: Ll.operand 
       let compileIndexOp = compile_operand indexOp hd in
       let prefixIns = offset_into_array_ins ty in
       compileIndexOp::prefixIns @ (aux (ty, tail))
+    | (Namedt(tid), l) -> aux (lookup ctxt.tdecls tid, l)
     | _ -> failwith "unexpected GEP argument type"
   in
   (* Check types *)
