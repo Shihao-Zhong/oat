@@ -250,6 +250,12 @@ let offset_into_array_ins index finalPointer tdecls ty =
   let calcNewPointerIns = (Addq, [Reg Rax; finalPointer]) in
   [moveIndToRax; calcOffsetIns; calcNewPointerIns]
 
+let offset_into_struct_ins index finalPointer tdecls (types: ty list) = 
+  let priorTypes = first index types in
+  let offset = priorTypes |> List.fold_left (fun acc ty -> acc + (size_ty tdecls ty)) 0 in 
+  let calcNewPointerIns = (Addq, [Imm(Lit(Int64.of_int(offset))); finalPointer]) in
+  [calcNewPointerIns]
+
 let compile_gep (ctxt : ctxt) ((ty, op) : Ll.ty * Ll.operand) (path: Ll.operand list) : ins list =
   (* definitions *)
   let finalPtrOp = Reg R08 in
