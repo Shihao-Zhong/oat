@@ -23,7 +23,7 @@ let parse_consts =
   ; ("parse consts test four", parse_test Parser.exp_top eq_exp "false" (no_loc (CBool false)))
   ; ("parse consts test five", parse_test Parser.exp_top eq_exp "\"hello world\"" (no_loc (CStr "hello world")))
   ; ("parse consts test six", parse_test Parser.exp_top eq_exp "new int[]{1, 2, 3}"
-      (no_loc (CArr (TInt, [no_loc (CInt 1L); no_loc (CInt 2L); no_loc (CInt 3L)]))))
+       (no_loc (CArr (TInt, [no_loc (CInt 1L); no_loc (CInt 2L); no_loc (CInt 3L)]))))
   ]
 
 let exp_test code ast = parse_test Parser.exp_top eq_exp code ast
@@ -91,13 +91,13 @@ let parse_prog_tests =
   ]
 
 let parse_tests = parse_consts
-                @ parse_exp_tests
-                @ parse_stmt_tests
-                @ parse_prog_tests
+                  @ parse_exp_tests
+                  @ parse_stmt_tests
+                  @ parse_prog_tests
 
 let oat_file_test path args =
   let () = Platform.verb @@ Printf.sprintf "** Processing: %s\n" path in
-  
+
   let output_path = !Platform.output_path in
   let dot_ll_file = Platform.gen_name output_path "test" ".ll" in
   let exec_file = Platform.gen_name output_path "exec" "" in
@@ -142,39 +142,39 @@ let globals_tests = [
 ]
 
 let path_tests = [
- ("atprograms/path1.oat", "", "17");
- ("atprograms/path2.oat", "", "35");
- ("atprograms/path3.oat", "", "3");
- ("atprograms/arrayargs.oat", "", "17"); 
- ("atprograms/arrayargs1.oat", "", "17");
- ("atprograms/arrayargs2.oat", "", "17");
- ("atprograms/arrayargs3.oat", "", "34");
+  ("atprograms/path1.oat", "", "17");
+  ("atprograms/path2.oat", "", "35");
+  ("atprograms/path3.oat", "", "3");
+  ("atprograms/arrayargs.oat", "", "17"); 
+  ("atprograms/arrayargs1.oat", "", "17");
+  ("atprograms/arrayargs2.oat", "", "17");
+  ("atprograms/arrayargs3.oat", "", "34");
 ]
 
 let easy_tests = [
-    ("atprograms/run13.oat", "", "1");
-    ("atprograms/run21.oat", "", "99");
-    ("atprograms/run26.oat", "", "0");
-    ("atprograms/run27.oat", "", "99");
-    ("atprograms/run28.oat", "", "18");
-    ("atprograms/run29.oat", "", "1");
-    ("atprograms/run30.oat", "", "9");
-    ("atprograms/run31.oat", "", "9");
-    ("atprograms/run32.oat", "", "33");
-    ("atprograms/run33.oat", "", "1");
-    ("atprograms/run34.oat", "", "66");
-    ("atprograms/run35.oat", "", "66");
-    ("atprograms/run36.oat", "", "0");
-    ("atprograms/run37.oat", "", "2");        
-    ("atprograms/run38.oat", "", "31");
-    ("atprograms/run39.oat", "a", "2");
-    ("atprograms/run40.oat", "", "8");
-    ("atprograms/run41.oat", "", "3");
-    ("atprograms/run42.oat", "", "2");
-    ("atprograms/run49.oat", "", "abc0");
-    ("atprograms/run50.oat", "", "abcde0");
-    ("atprograms/run60.oat", "", "85");
-    ("atprograms/run61.oat", "", "3410");
+  ("atprograms/run13.oat", "", "1");
+  ("atprograms/run21.oat", "", "99");
+  ("atprograms/run26.oat", "", "0");
+  ("atprograms/run27.oat", "", "99");
+  ("atprograms/run28.oat", "", "18");
+  ("atprograms/run29.oat", "", "1");
+  ("atprograms/run30.oat", "", "9");
+  ("atprograms/run31.oat", "", "9");
+  ("atprograms/run32.oat", "", "33");
+  ("atprograms/run33.oat", "", "1");
+  ("atprograms/run34.oat", "", "66");
+  ("atprograms/run35.oat", "", "66");
+  ("atprograms/run36.oat", "", "0");
+  ("atprograms/run37.oat", "", "2");        
+  ("atprograms/run38.oat", "", "31");
+  ("atprograms/run39.oat", "a", "2");
+  ("atprograms/run40.oat", "", "8");
+  ("atprograms/run41.oat", "", "3");
+  ("atprograms/run42.oat", "", "2");
+  ("atprograms/run49.oat", "", "abc0");
+  ("atprograms/run50.oat", "", "abcde0");
+  ("atprograms/run60.oat", "", "85");
+  ("atprograms/run61.oat", "", "3410");
 ]
 
 let medium_tests = [
@@ -220,55 +220,55 @@ let medium_tests = [
 ]
 
 let hard_tests = [
-("atprograms/fac.oat", "", "120");
-("atprograms/qsort.oat", "", "kpyf{shomfhkmopsy{255");
-("atprograms/bsort.oat", "", "y}xotnuw notuwxy}255");
-("atprograms/msort.oat", "", "~}|{zyxwvu uvwxyz{|}~ 0");
-("atprograms/msort2.oat", "", "~}|{zyxwvu uvwxyz{|}~ 0");
-("atprograms/selectionsort.oat", "", "01253065992000");
-("atprograms/matrixmult.oat", "", "19 16 13 23 \t5 6 7 6 \t19 16 13 23 \t5 6 7 6 \t0");
+  ("atprograms/fac.oat", "", "120");
+  ("atprograms/qsort.oat", "", "kpyf{shomfhkmopsy{255");
+  ("atprograms/bsort.oat", "", "y}xotnuw notuwxy}255");
+  ("atprograms/msort.oat", "", "~}|{zyxwvu uvwxyz{|}~ 0");
+  ("atprograms/msort2.oat", "", "~}|{zyxwvu uvwxyz{|}~ 0");
+  ("atprograms/selectionsort.oat", "", "01253065992000");
+  ("atprograms/matrixmult.oat", "", "19 16 13 23 \t5 6 7 6 \t19 16 13 23 \t5 6 7 6 \t0");
 ]
 
 let old_student_tests = [
-    ("atprograms/binary_search.oat", "", "Correct!0")
-  ; ("atprograms/xor_shift.oat", "", "838867572\n22817190600")
-  ; ("atprograms/sieve.oat", "", "25")
-  ; ("atprograms/count_sort.oat", "", "AFHZAAEYC\nAAACEFHYZ0")
-  ; ("atprograms/determinant_size2.oat", "", "94")
-  ; ("atprograms/fibo.oat", "", "0")
-  ; ("atprograms/bubble_sort.oat", "", "1")
-  ; ("atprograms/heap.oat", "", "1")
-  ; ("atprograms/binary_gcd.oat", "", "3")
-  ; ("atprograms/lfsr.oat", "", "TFTF FFTT0")
-  ; ("atprograms/gnomesort.oat", "", "01253065992000")
-  ; ("atprograms/josh_joyce_test.oat", "", "0")
-  ; ("atprograms/conquest.oat", "", "My name is Jeff...\nCharizard is the BEST Pokemon ever!!!11")
-  ; ("atprograms/gcd.oat", "", "16")
-  ; ("atprograms/life.oat", "", "00101001100101000")
-  ; ("atprograms/lcs.oat", "", "OAT0")
-  ; ("atprograms/insertion_sort.oat", "", "42")
-  ; ("atprograms/maxsubsequence.oat", "", "107")
+  ("atprograms/binary_search.oat", "", "Correct!0")
+; ("atprograms/xor_shift.oat", "", "838867572\n22817190600")
+; ("atprograms/sieve.oat", "", "25")
+; ("atprograms/count_sort.oat", "", "AFHZAAEYC\nAAACEFHYZ0")
+; ("atprograms/determinant_size2.oat", "", "94")
+; ("atprograms/fibo.oat", "", "0")
+; ("atprograms/bubble_sort.oat", "", "1")
+; ("atprograms/heap.oat", "", "1")
+; ("atprograms/binary_gcd.oat", "", "3")
+; ("atprograms/lfsr.oat", "", "TFTF FFTT0")
+; ("atprograms/gnomesort.oat", "", "01253065992000")
+; ("atprograms/josh_joyce_test.oat", "", "0")
+; ("atprograms/conquest.oat", "", "My name is Jeff...\nCharizard is the BEST Pokemon ever!!!11")
+; ("atprograms/gcd.oat", "", "16")
+; ("atprograms/life.oat", "", "00101001100101000")
+; ("atprograms/lcs.oat", "", "OAT0")
+; ("atprograms/insertion_sort.oat", "", "42")
+; ("atprograms/maxsubsequence.oat", "", "107")
 ]
-    
+
 let student_tests = [
   ("atprograms/sp18_hw04_akashsub_recurse.oat", "", "64") (* student's omission used logical AND instead of IAND *)
-  ; ("atprograms/sp18_hw04_nalvelo_knapsack.oat", "", "220") (* wrong allocation for nested array and mistake in for loop *)
-  ; ("atprograms/sp18_hw04_javarun_quicksort.oat", "", "1") (* missing function in student's submission *)
-  ; ("atprograms/sp18_hw04_askinsj_resizing_stack.oat", "", "15") (* student's code shadowed global accidentally *)
+; ("atprograms/sp18_hw04_nalvelo_knapsack.oat", "", "220") (* wrong allocation for nested array and mistake in for loop *)
+; ("atprograms/sp18_hw04_javarun_quicksort.oat", "", "1") (* missing function in student's submission *)
+; ("atprograms/sp18_hw04_askinsj_resizing_stack.oat", "", "15") (* student's code shadowed global accidentally *)
 
-  ; ("atprograms/sp18_hw04_aen_sudoku.oat", "", "Success!2")
-  ; ("atprograms/sp18_hw04_geyerj_heapsort.oat", "", "9")
-  ; ("atprograms/sp18_hw04_loma_deque.oat", "", "1")
-  ; ("atprograms/sp18_hw04_mannd_permutations.oat", "d", "d,9")
-  ; ("atprograms/sp18_hw04_mannd_permutations.oat", "341", "341,314,431,413,134,143,9")
-  ; ("atprograms/sp18_hw04_mannd_permutations.oat", "abcde", "abcde,abced,abdce,abdec,abecd,abedc,acbde,acbed,acdbe,acdeb,acebd,acedb,adbce,adbec,adcbe,adceb,adebc,adecb,aebcd,aebdc,aecbd,aecdb,aedbc,aedcb,bacde,baced,badce,badec,baecd,baedc,bcade,bcaed,bcdae,bcdea,bcead,bceda,bdace,bdaec,bdcae,bdcea,bdeac,bdeca,beacd,beadc,becad,becda,bedac,bedca,cabde,cabed,cadbe,cadeb,caebd,caedb,cbade,cbaed,cbdae,cbdea,cbead,cbeda,cdabe,cdaeb,cdbae,cdbea,cdeab,cdeba,ceabd,ceadb,cebad,cebda,cedab,cedba,dabce,dabec,dacbe,daceb,daebc,daecb,dbace,dbaec,dbcae,dbcea,dbeac,dbeca,dcabe,dcaeb,dcbae,dcbea,dceab,dceba,deabc,deacb,debac,debca,decab,decba,eabcd,eabdc,eacbd,eacdb,eadbc,eadcb,ebacd,ebadc,ebcad,ebcda,ebdac,ebdca,ecabd,ecadb,ecbad,ecbda,ecdab,ecdba,edabc,edacb,edbac,edbca,edcab,edcba,9")
-  ; ("atprograms/sp18_hw04_petrosky_dfs.oat", "", "21")
-  ; ("atprograms/sp18_hw04_scaby_andreasx_bfs.oat", "", "1")
-  ; ("atprograms/sp18_hw04_smumick_longest_pal_subseq.oat", "", "5")
-  ; ("atprograms/sp18_hw04_somilgo_sanjitk_coin_change.oat", "", "67")
-  ; ("atprograms/sp18_hw04_wangandr_dijkstra.oat", "", "5") 
+; ("atprograms/sp18_hw04_aen_sudoku.oat", "", "Success!2")
+; ("atprograms/sp18_hw04_geyerj_heapsort.oat", "", "9")
+; ("atprograms/sp18_hw04_loma_deque.oat", "", "1")
+; ("atprograms/sp18_hw04_mannd_permutations.oat", "d", "d,9")
+; ("atprograms/sp18_hw04_mannd_permutations.oat", "341", "341,314,431,413,134,143,9")
+; ("atprograms/sp18_hw04_mannd_permutations.oat", "abcde", "abcde,abced,abdce,abdec,abecd,abedc,acbde,acbed,acdbe,acdeb,acebd,acedb,adbce,adbec,adcbe,adceb,adebc,adecb,aebcd,aebdc,aecbd,aecdb,aedbc,aedcb,bacde,baced,badce,badec,baecd,baedc,bcade,bcaed,bcdae,bcdea,bcead,bceda,bdace,bdaec,bdcae,bdcea,bdeac,bdeca,beacd,beadc,becad,becda,bedac,bedca,cabde,cabed,cadbe,cadeb,caebd,caedb,cbade,cbaed,cbdae,cbdea,cbead,cbeda,cdabe,cdaeb,cdbae,cdbea,cdeab,cdeba,ceabd,ceadb,cebad,cebda,cedab,cedba,dabce,dabec,dacbe,daceb,daebc,daecb,dbace,dbaec,dbcae,dbcea,dbeac,dbeca,dcabe,dcaeb,dcbae,dcbea,dceab,dceba,deabc,deacb,debac,debca,decab,decba,eabcd,eabdc,eacbd,eacdb,eadbc,eadcb,ebacd,ebadc,ebcad,ebcda,ebdac,ebdca,ecabd,ecadb,ecbad,ecbda,ecdab,ecdba,edabc,edacb,edbac,edbca,edcab,edcba,9")
+; ("atprograms/sp18_hw04_petrosky_dfs.oat", "", "21")
+; ("atprograms/sp18_hw04_scaby_andreasx_bfs.oat", "", "1")
+; ("atprograms/sp18_hw04_smumick_longest_pal_subseq.oat", "", "5")
+; ("atprograms/sp18_hw04_somilgo_sanjitk_coin_change.oat", "", "67")
+; ("atprograms/sp18_hw04_wangandr_dijkstra.oat", "", "5") 
 ]
-  
+
 let tests : suite =
   [ GradedTest("parse tests", 15, parse_tests);
     GradedTest("easiest tests", 15, executed_oat_file easiest_tests);
@@ -280,11 +280,8 @@ let tests : suite =
   ]
 
 let manual_tests : suite = [
-  GradedTest ("Posted Piazza Test Case", 5,
-    [  ]
-  );
-  GradedTest ("Other Student Piazza Tests", 5,
-    
+  GradedTest ("Posted Piazza Test Case", 5, []);
+  GradedTest ("Other Student Piazza Tests", 5, [])
 ]
 
 let graded_tests : suite = tests @ manual_tests
