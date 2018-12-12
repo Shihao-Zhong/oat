@@ -58,9 +58,16 @@ let loc (startpos:Lexing.position) (endpos:Lexing.position) (elt:'a) : 'a node =
 
 %token GLOBAL   /* global */
 
-
+%left BRPIP
+%left BRAMP
+%left PIP
+%left AMP
+%left EQEQ BANGEQ
+%left LA LAEQ RA RAEQ
+%left LALA RARA RARARA
 %left PLUS DASH
 %left STAR
+
 %nonassoc BANG
 %nonassoc TILDE
 %nonassoc LBRACKET
@@ -117,6 +124,18 @@ ty:
   | DASH   { Sub }
   | STAR   { Mul }
   | EQEQ   { Eq } 
+  | LALA   { Shl }
+  | RARA   { Shr }
+  | RARARA { Sar }
+  | LA     { Lt }
+  | LAEQ   { Lte }
+  | RA     { Gt }
+  | RAEQ   { Gte }
+  | BANGEQ { Neq }
+  | AMP    { And }
+  | PIP    { Or }
+  | BRAMP  { IAnd }
+  | BRPIP  { IOr }
 
 %inline uop:
   | DASH  { Neg }
