@@ -13,6 +13,7 @@ let loc (startpos:Lexing.position) (endpos:Lexing.position) (elt:'a) : 'a node =
 %token <string> STRING
 %token <string> IDENT
 
+/* Keywords */
 %token TINT     /* int */
 %token TVOID    /* void */
 %token TSTRING  /* string */
@@ -55,9 +56,10 @@ let loc (startpos:Lexing.position) (endpos:Lexing.position) (elt:'a) : 'a node =
 %token TILDE    /* ~ */
 %token BANG     /* ! */
 
+/* Global */
+%token GLOBAL /* global */
 
-%token GLOBAL   /* global */
-
+/* Precedence and Associativity */
 %left BRPIP
 %left BRAMP
 %left PIP

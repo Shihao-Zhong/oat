@@ -46,6 +46,7 @@
   ( ")", RPAREN);
   ( "[", LBRACKET);
   ( "]", RBRACKET);
+
   (* Binary Operators *)
   ( "*", STAR);
   ( "+", PLUS);
@@ -63,10 +64,11 @@
   ( "|", PIP);
   ( "[&]", BRAMP);
   ( "[|]", BRPIP);
+
   (* Unary Operators *)
   ( "=", EQ);
   ( "!", BANG);
-  ( "~", TILDE);  
+  ( "~", TILDE);
   ]
 
 let (symbol_table : (string, Parser.token) Hashtbl.t) = Hashtbl.create 1024
