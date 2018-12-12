@@ -21,6 +21,7 @@ let loc (startpos:Lexing.position) (endpos:Lexing.position) (elt:'a) : 'a node =
 %token ELSE     /* else */
 %token WHILE    /* while */
 %token RETURN   /* return */
+%token NEW      /* new */
 
 /* Symbols */
 %token VAR      /* var */
@@ -109,6 +110,7 @@ decl:
   | frtyp=ret_ty fname=IDENT LPAREN args=arglist RPAREN body=block
     { Gfdecl (loc $startpos $endpos { frtyp; fname; args; body }) }
 
+
 arglist:
   | l=separated_list(COMMA, pair(ty,IDENT)) { l }
     
@@ -153,6 +155,8 @@ gexp:
   | t=ty NULL  { loc $startpos $endpos @@ CNull t }
   | i=INT      { loc $startpos $endpos @@ CInt i }
   | b=BOOL     { loc $startpos $endpos @@ CBool b }
+  | t=ty LBRACKET RBRACKET LBRACE es=separated_list(COMMA, exp) RBRACE
+               { loc $startpos $endpos @@ CArr (t, es) }
 
 lhs:  
   | id=IDENT            { loc $startpos $endpos @@ Id id }
@@ -171,7 +175,10 @@ exp:
   | e=exp LPAREN es=separated_list(COMMA, exp) RPAREN
                         { loc $startpos $endpos @@ Call (e,es) }
   | LPAREN e=exp RPAREN { e } 
-
+  | NEW t=ty LBRACKET e=exp RBRACKET
+                        { loc $startpos $endpos @@ NewArr (t, e) }
+  | NEW t=ty LBRACKET RBRACKET LBRACE es=separated_list(COMMA, exp) RBRACE
+                        { loc $startpos $endpos @@ CArr (t, es) }
 vdecl:
   | VAR id=IDENT EQ init=exp { (id, init) }
 
