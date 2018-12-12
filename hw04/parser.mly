@@ -56,6 +56,10 @@ let loc (startpos:Lexing.position) (endpos:Lexing.position) (elt:'a) : 'a node =
 %token TILDE    /* ~ */
 %token BANG     /* ! */
 
+/* Booleans */
+%token TBOOL        /* bool */
+%token <bool> BOOL  /* true | false */
+
 /* Global */
 %token GLOBAL /* global */
 
@@ -110,6 +114,7 @@ arglist:
     
 ty:
   | TINT   { TInt }
+  | TBOOL  { TBool }
   | r=rtyp { TRef r } 
 
 
@@ -146,7 +151,8 @@ ty:
 
 gexp:
   | t=ty NULL  { loc $startpos $endpos @@ CNull t }
-  | i=INT      { loc $startpos $endpos @@ CInt i } 
+  | i=INT      { loc $startpos $endpos @@ CInt i }
+  | b=BOOL     { loc $startpos $endpos @@ CBool b }
 
 lhs:  
   | id=IDENT            { loc $startpos $endpos @@ Id id }
@@ -155,6 +161,7 @@ lhs:
 
 exp:
   | i=INT               { loc $startpos $endpos @@ CInt i }
+  | b=BOOL              { loc $startpos $endpos @@ CBool b }
   | t=ty NULL           { loc $startpos $endpos @@ CNull t }
   | e1=exp b=bop e2=exp { loc $startpos $endpos @@ Bop (b, e1, e2) }
   | u=uop e=exp         { loc $startpos $endpos @@ Uop (u, e) }

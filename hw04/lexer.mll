@@ -69,6 +69,11 @@
   ( "=", EQ);
   ( "!", BANG);
   ( "~", TILDE);
+
+  (* Booleans *)
+  ( "bool", TBOOL);
+  ( "false", BOOL false);
+  ( "true", BOOL true);
   ]
 
 let (symbol_table : (string, Parser.token) Hashtbl.t) = Hashtbl.create 1024
