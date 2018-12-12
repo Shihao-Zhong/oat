@@ -20,24 +20,43 @@ let loc (startpos:Lexing.position) (endpos:Lexing.position) (elt:'a) : 'a node =
 %token ELSE     /* else */
 %token WHILE    /* while */
 %token RETURN   /* return */
+
+/* Symbols */
 %token VAR      /* var */
 %token SEMI     /* ; */
 %token COMMA    /* , */
 %token LBRACE   /* { */
 %token RBRACE   /* } */
-%token PLUS     /* + */
-%token DASH     /* - */
-%token STAR     /* * */
-%token EQEQ     /* == */
-%token EQ       /* = */
 %token LPAREN   /* ( */
 %token RPAREN   /* ) */
 %token LBRACKET /* [ */
 %token RBRACKET /* ] */
+
+/* Binary Operators */
+%token STAR       /* * */
+%token PLUS       /* + */
+%token DASH       /* - */
+%token LALA       /* << */
+%token RARA       /* >> */
+%token RARARA     /* >>> */
+%token LA         /* < */
+%token LAEQ       /* <= */
+%token RA         /* > */
+%token RAEQ       /* >= */
+%token EQEQ       /* == */
+%token BANGEQ     /* != */
+%token AMP        /* & */
+%token PIP        /* | */
+%token BRAMP      /* [&] */
+%token BRPIP      /* [|] */
+
+/* Unary Operators */
+%token EQ       /* = */
 %token TILDE    /* ~ */
 %token BANG     /* ! */
-%token GLOBAL   /* global */
 
+
+%token GLOBAL   /* global */
 
 
 %left PLUS DASH
