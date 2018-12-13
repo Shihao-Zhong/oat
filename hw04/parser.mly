@@ -158,6 +158,7 @@ gexp:
   | b=BOOL     { loc $startpos $endpos @@ CBool b }
   | t=ty LBRACKET RBRACKET LBRACE es=separated_list(COMMA, exp) RBRACE
                { loc $startpos $endpos @@ CArr (t, es) }
+  | s=STRING   { loc $startpos $endpos @@ CStr s }
 
 lhs:  
   | id=IDENT            { loc $startpos $endpos @@ Id id }
@@ -180,6 +181,8 @@ exp:
                         { loc $startpos $endpos @@ NewArr (t, e) }
   | NEW t=ty LBRACKET RBRACKET LBRACE es=separated_list(COMMA, exp) RBRACE
                         { loc $startpos $endpos @@ CArr (t, es) }
+  | s=STRING            { loc $startpos $endpos @@ CStr s }
+
 vdecl:
   | VAR id=IDENT EQ init=exp { (id, init) }
 
