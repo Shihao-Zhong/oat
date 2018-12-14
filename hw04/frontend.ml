@@ -241,7 +241,18 @@ let cmp_function_ctxt (c:Ctxt.t) (p:Ast.prog) : Ctxt.t =
    in well-formed programs. (The constructors starting with C). 
 *)
 let cmp_global_ctxt (c:Ctxt.t) (p:Ast.prog) : Ctxt.t =
-  failwith "cmp_global_ctxt unimplemented"
+  let strTy s = Array ((String.length s), I8) in
+  List.fold_left (fun c -> function
+      | Ast.Gvdecl { elt = {name; init} } -> (
+          match init.elt with
+          | CNull(ty) -> (name, (Ptr(cmp_ty ty), Gid name))::c
+          | CBool _ -> (name, (I1, Gid name))::c
+          | CInt _ -> (name, (I64, Gid name))::c
+          | CStr s -> (name, (strTy s, Gid name))::c
+          | _ -> failwith "unsupported type"
+        )
+      | _ -> c
+    ) c p
 
 (* Compile a function declaration in global context c. Return the LLVMlite cfg
    and a list of global declarations containing the string literals appearing
