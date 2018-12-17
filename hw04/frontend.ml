@@ -241,15 +241,17 @@ let cmp_function_ctxt (c:Ctxt.t) (p:Ast.prog) : Ctxt.t =
    in well-formed programs. (The constructors starting with C). 
 *)
 let cmp_global_ctxt (c:Ctxt.t) (p:Ast.prog) : Ctxt.t =
-  let strTy s = Array ((String.length s), I8) in
   List.fold_left (fun c -> function
       | Ast.Gvdecl { elt = {name; init} } -> (
-          match init.elt with
-          | CNull(ty) -> (name, (Ptr(cmp_ty ty), Gid name))::c
-          | CBool _ -> (name, (I1, Gid name))::c
-          | CInt _ -> (name, (I64, Gid name))::c
-          | CStr s -> (name, (strTy s, Gid name))::c
-          | _ -> failwith "unsupported type"
+          let ty = match init.elt with
+            | CNull _       -> Ptr Void
+            | CBool _       -> Ptr I1
+            | CInt _        -> Ptr I64
+            | CStr _        -> Ptr I8
+            | CArr (ty, _)  -> Ptr (Struct [I64; Array(0, cmp_ty ty)])
+            | _ -> failwith "unsupported type"
+          in
+          Ctxt.add c name (ty, Gid name)
         )
       | _ -> c
     ) c p
