@@ -244,7 +244,7 @@ let cmp_global_ctxt (c:Ctxt.t) (p:Ast.prog) : Ctxt.t =
   List.fold_left (fun c -> function
       | Ast.Gvdecl { elt = {name; init} } -> (
           let ty = match init.elt with
-            | CNull _       -> Ptr Void
+            | CNull ty      -> Ptr (cmp_ty ty)
             | CBool _       -> Ptr I1
             | CInt _        -> Ptr I64
             | CStr _        -> Ptr I8
@@ -282,8 +282,14 @@ let cmp_fdecl (c:Ctxt.t) (f:Ast.fdecl node) : Ll.fdecl * (Ll.gid * Ll.gdecl) lis
    - OAT arrays are always handled via pointers. A global array of arrays will
      be an array of pointers to arrays emitted as additional global declarations
 *)
-let rec cmp_gexp c (e:Ast.exp node) : Ll.gdecl * (Ll.gid * Ll.gdecl) list =
-  failwith "cmp_init not implemented"
+let rec cmp_gexp (c : Ctxt.t) (e:Ast.exp node) : Ll.gdecl * (Ll.gid * Ll.gdecl) list =
+  match e.elt with
+  | CNull ty      ->  (Ptr (cmp_ty ty), GNull),       []
+  | CBool b       ->  (Ptr I1, GInt Int64.one),       []
+  | CInt i        ->  (Ptr I64, GInt i),              []
+  | CStr s        ->  (Ptr I8, GString (s ^ "\x00")), []
+  (* | CArr(ty, es)  -> *)
+  | _ -> failwith "cmp_init not implemented"
 
 
 (* Oat internals function context ------------------------------------------- *)
