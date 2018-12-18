@@ -289,10 +289,12 @@ let cmp_fdecl (c:Ctxt.t) (f:Ast.fdecl node) : Ll.fdecl * (Ll.gid * Ll.gdecl) lis
 *)
 let rec cmp_gexp (c : Ctxt.t) (e:Ast.exp node) : Ll.gdecl * (Ll.gid * Ll.gdecl) list =
   match e.elt with
-  | CNull ty      ->  (Ptr (cmp_ty ty), GNull),       []
-  | CBool b       ->  (Ptr I1, GInt Int64.one),       []
-  | CInt i        ->  (Ptr I64, GInt i),              []
-  | CStr s        ->  (Ptr I8, GString (s ^ "\x00")), []
+  | CBool b ->  (I1, GInt Int64.one), []
+  | CInt i ->  (I64, GInt i), []
+  | CStr s -> 
+    let s = s ^ "\x00" in 
+    (Array (String.length s, I8), GString s), []
+  (* | CNull ty      ->  (Ptr (cmp_ty ty), GNull),   [] *)
   (* | CArr(ty, es)  -> *)
   | _ -> failwith "cmp_init not implemented"
 
