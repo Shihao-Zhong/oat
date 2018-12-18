@@ -179,7 +179,9 @@ let oat_alloc_array (t:Ast.ty) (size:Ll.operand) : Ll.ty * operand * stream =
 
 *)
 let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
-  failwith "cmp_exp unimplemented"    
+  match exp.elt with
+  | CInt i -> I64, Const(i), []
+  | _ -> failwith "cmp_exp unimplemented"
 
 
 (* Compile a statement in context c with return typ rt. Return a new context, 
@@ -209,8 +211,10 @@ let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
 
 *)
 let rec cmp_stmt (c:Ctxt.t) (rt:Ll.ty) (stmt:Ast.stmt node) : Ctxt.t * stream =
-  failwith "cmp_stmt not implemented"
-
+  match stmt.elt with
+  | Ret None -> c, [T(Ret(Void, None))]
+  | Ret Some(e) -> let (ty, op, stream) = cmp_exp c e in c, [T(Ret(ty, Some(op)))]
+  | _ -> failwith "cmp_stmt not implemented"
 
 (* Compile a series of statements *)
 and cmp_block (c:Ctxt.t) (rt:Ll.ty) (stmts:Ast.block) : stream =
