@@ -217,7 +217,15 @@ let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
         let insn = Binop(bop, e1_ty, e1_op, e2_op) in
         (ret_ty, Id(uid), e2_stream >@ e1_stream >:: I(uid, insn))    
     )
-  | _ -> failwith "cmp_exp unimplemented"
+  | Id(id) -> (
+      let (ty, op) = List.assoc id c in
+      match ty with
+      | Ptr(ty) ->
+        let uid = gensym "" in
+        ty, Id(uid), [I(uid, Load(Ptr(ty), op))]
+      | _ -> failwith "Id expects a Ptr"
+    ) 
+  | _ -> failwith "cmp_exp unimplemented "
 
 
 (* Compile a statement in context c with return typ rt. Return a new context, 
@@ -249,7 +257,34 @@ let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
 let rec cmp_stmt (c:Ctxt.t) (rt:Ll.ty) (stmt:Ast.stmt node) : Ctxt.t * stream =
   match stmt.elt with
   | Ret None -> c, [T(Ret(Void, None))]
-  | Ret Some(e) -> let (ty, op, stream) = cmp_exp c e in c, stream >@ [T(Ret(ty, Some(op)))]
+  | Ret Some(e) -> 
+    let (ty, op, stream) = cmp_exp c e in
+    c, stream >@ [T(Ret(ty, Some(op)))]
+  | Decl(id, e) ->
+    let uid = gensym id in
+    let (ty, op, stream) = cmp_exp c e in
+    let allocate_ins = E(uid, Alloca ty) in
+    let store_ins = I("", Store(ty, op, Id(uid))) in
+    let c = Ctxt.add c id (Ptr(ty), Id uid) in
+    c, stream >@ [allocate_ins; store_ins]
+  | While(e, ss) -> (
+      let (cnd_ty, cnd_op, cnd_stream) = cmp_exp c e in
+      let c, body = List.fold_left (
+          fun (c, body) s ->
+            let (c, stream) = cmp_stmt c Void s in
+            c, stream @ body
+        ) (c, []) ss
+      in
+      let jmp_to_start = T(Br "start") in
+      let jmp_to_body = T(Cbr (cnd_op, "body", "else")) in
+      c, [L("else")] @ ([jmp_to_start] @ body @ [L("body")]) @ ([jmp_to_body] @ cnd_stream @ [L("start")]) @ [jmp_to_start]
+    )
+  | Assn(l, r) -> (
+      let (l_ty, l_op, l_stream) = cmp_exp c l in
+      let (r_ty, r_op, r_stream) = cmp_exp c r in
+      let store_ins = I("", Store(r_ty, r_op, l_op)) in
+      c, l_stream >@ r_stream >:: store_ins
+    )
   | _ -> failwith "cmp_stmt not implemented"
 
 (* Compile a series of statements *)
@@ -258,8 +293,6 @@ and cmp_block (c:Ctxt.t) (rt:Ll.ty) (stmts:Ast.block) : stream =
       let c, stmt_code = cmp_stmt c rt s in
       c, code >@ stmt_code
     ) (c,[]) stmts
-
-
 
 (* Adds each function identifer to the context at an
    appropriately translated type.  
