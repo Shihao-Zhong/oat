@@ -268,17 +268,13 @@ let rec cmp_stmt (c:Ctxt.t) (rt:Ll.ty) (stmt:Ast.stmt node) : Ctxt.t * stream =
     c, stream >:: allocate >:: store
   | While(cnd, stmts) -> (
       let (cnd_ty, cnd_op, cnd_stream) = cmp_exp c cnd in
-      let c, body = List.fold_left (fun (c, body) s ->
-          let c, stream = cmp_stmt c rt s in
-          c, stream @ body
-        ) (c, []) stmts
-      in
+      let c, body = cmp_stmts c rt stmts in
       let start_lbl = gensym "start" in
       let body_lbl = gensym "body" in
       let else_lbl = gensym "else" in
       let jmp_to_start = T(Br start_lbl) in
-      let jmp_to_body = T(Cbr (cnd_op, body_lbl, else_lbl)) in
-      let start_stream = [L(start_lbl)] >@ cnd_stream >:: jmp_to_body  in
+      let jmp_while = T(Cbr (cnd_op, body_lbl, else_lbl)) in
+      let start_stream = [L(start_lbl)] >@ cnd_stream >:: jmp_while  in
       let body_stream = [L(body_lbl)] >@ body >:: jmp_to_start in
       c, [jmp_to_start] >@ start_stream >@ body_stream >:: L(else_lbl)
     )
@@ -288,14 +284,31 @@ let rec cmp_stmt (c:Ctxt.t) (rt:Ll.ty) (stmt:Ast.stmt node) : Ctxt.t * stream =
       | Id(id) ->  c, r_stream >:: I("", Store(r_ty, r_op, Id id))
       | _ -> failwith "cmp_stmt not implemented"
     )
+  | If(cnd, t, e) -> (
+      let (cnd_ty, cnd_op, cnd_stream) = cmp_exp c cnd in
+      let c, t_stream = cmp_stmts c rt t in
+      let c, e_stream = cmp_stmts c rt e in
+      let start_lbl = gensym "start" in
+      let then_lbl = gensym "then" in
+      let else_lbl = gensym "else" in
+      let post_lbl = gensym "post" in
+      let jmp_to_start = T(Br start_lbl) in
+      let jmp_to_post = T(Br post_lbl) in
+      let jmp_if = T(Cbr (cnd_op, then_lbl, else_lbl)) in
+      let start_stream = [L(start_lbl)] >@ cnd_stream >:: jmp_if in
+      let then_stream = [L(then_lbl)] >@ t_stream >:: jmp_to_post in
+      let else_stream = [L(else_lbl)] >@ e_stream >:: jmp_to_post in
+      c, [jmp_to_start] >@ start_stream >@ then_stream >@ else_stream >:: L(post_lbl)
+    )
   | _ -> failwith "cmp_stmt not implemented"
-
-(* Compile a series of statements *)
-and cmp_block (c:Ctxt.t) (rt:Ll.ty) (stmts:Ast.block) : stream =
-  snd @@ List.fold_left (fun (c, code) s -> 
+and cmp_stmts (c:Ctxt.t) (rt:Ll.ty) (stmts:Ast.block) : Ctxt.t * stream =
+  List.fold_left (fun (c, code) s -> 
       let c, stmt_code = cmp_stmt c rt s in
       c, code >@ stmt_code
     ) (c,[]) stmts
+
+(* Compile a series of statements *)
+and cmp_block (c:Ctxt.t) (rt:Ll.ty) (stmts:Ast.block) : stream = snd @@ cmp_stmts c rt stmts 
 
 (* Adds each function identifer to the context at an
    appropriately translated type.  
