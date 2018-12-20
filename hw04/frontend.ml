@@ -283,10 +283,10 @@ let rec cmp_stmt (c:Ctxt.t) (rt:Ll.ty) (stmt:Ast.stmt node) : Ctxt.t * stream =
       c, [jmp_to_start] >@ start_stream >@ body_stream >:: L(else_lbl)
     )
   | Assn(l, r) -> (
-      let (l_ty, l_op, l_stream) = cmp_exp c l in
       let (r_ty, r_op, r_stream) = cmp_exp c r in
-      let store = I("", Store(r_ty, r_op, l_op)) in
-      c, l_stream >@ r_stream >:: store
+      match l.elt with
+      | Id(id) ->  c, r_stream >:: I("", Store(r_ty, r_op, Id id))
+      | _ -> failwith "cmp_stmt not implemented"
     )
   | _ -> failwith "cmp_stmt not implemented"
 
