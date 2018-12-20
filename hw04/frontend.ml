@@ -259,31 +259,34 @@ let rec cmp_stmt (c:Ctxt.t) (rt:Ll.ty) (stmt:Ast.stmt node) : Ctxt.t * stream =
   | Ret None -> c, [T(Ret(Void, None))]
   | Ret Some(e) -> 
     let (ty, op, stream) = cmp_exp c e in
-    c, stream >@ [T(Ret(ty, Some(op)))]
+    c, stream >:: T(Ret(ty, Some op))
   | Decl(id, e) ->
-    let uid = gensym id in
     let (ty, op, stream) = cmp_exp c e in
-    let allocate_ins = E(uid, Alloca ty) in
-    let store_ins = I("", Store(ty, op, Id(uid))) in
-    let c = Ctxt.add c id (Ptr(ty), Id uid) in
-    c, stream >@ [allocate_ins; store_ins]
-  | While(e, ss) -> (
-      let (cnd_ty, cnd_op, cnd_stream) = cmp_exp c e in
-      let c, body = List.fold_left (
-          fun (c, body) s ->
-            let (c, stream) = cmp_stmt c Void s in
-            c, stream @ body
-        ) (c, []) ss
+    let allocate = E(id, Alloca ty) in
+    let store = I("", Store(ty, op, Id id)) in
+    let c = Ctxt.add c id (Ptr ty, Id id) in
+    c, stream >:: allocate >:: store
+  | While(cnd, stmts) -> (
+      let (cnd_ty, cnd_op, cnd_stream) = cmp_exp c cnd in
+      let c, body = List.fold_left (fun (c, body) s ->
+          let c, stream = cmp_stmt c rt s in
+          c, stream @ body
+        ) (c, []) stmts
       in
-      let jmp_to_start = T(Br "start") in
-      let jmp_to_body = T(Cbr (cnd_op, "body", "else")) in
-      c, [L("else")] @ ([jmp_to_start] @ body @ [L("body")]) @ ([jmp_to_body] @ cnd_stream @ [L("start")]) @ [jmp_to_start]
+      let start_lbl = gensym "start" in
+      let body_lbl = gensym "body" in
+      let else_lbl = gensym "else" in
+      let jmp_to_start = T(Br start_lbl) in
+      let jmp_to_body = T(Cbr (cnd_op, body_lbl, else_lbl)) in
+      let start_stream = [L(start_lbl)] >@ cnd_stream >:: jmp_to_body  in
+      let body_stream = [L(body_lbl)] >@ body >:: jmp_to_start in
+      c, [jmp_to_start] >@ start_stream >@ body_stream >:: L(else_lbl)
     )
   | Assn(l, r) -> (
       let (l_ty, l_op, l_stream) = cmp_exp c l in
       let (r_ty, r_op, r_stream) = cmp_exp c r in
-      let store_ins = I("", Store(r_ty, r_op, l_op)) in
-      c, l_stream >@ r_stream >:: store_ins
+      let store = I("", Store(r_ty, r_op, l_op)) in
+      c, l_stream >@ r_stream >:: store
     )
   | _ -> failwith "cmp_stmt not implemented"
 
