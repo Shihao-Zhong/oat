@@ -156,7 +156,7 @@ gexp:
   | t=ty NULL  { loc $startpos $endpos @@ CNull t }
   | i=INT      { loc $startpos $endpos @@ CInt i }
   | b=BOOL     { loc $startpos $endpos @@ CBool b }
-  | t=ty LBRACKET RBRACKET LBRACE es=separated_list(COMMA, exp) RBRACE
+  | t=ty LBRACKET RBRACKET LBRACE es=separated_list(COMMA, gexp) RBRACE
                { loc $startpos $endpos @@ CArr (t, es) }
   | s=STRING   { loc $startpos $endpos @@ CStr s }
 
