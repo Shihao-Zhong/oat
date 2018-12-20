@@ -224,8 +224,20 @@ let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
         let uid = gensym "" in
         ty, Id(uid), [I(uid, Load(Ptr(ty), op))]
       | _ -> failwith "Id expects a Ptr"
-    ) 
-  | _ -> failwith "cmp_exp unimplemented "
+    )
+  | Uop(op, exp) -> (
+      match op with
+      | Neg ->
+        let minus_one_node = no_loc @@ CInt(Int64.of_int (-1)) in
+        let binop_node = no_loc @@ Bop(Mul, exp, minus_one_node) in
+        cmp_exp c binop_node
+      | Lognot ->
+        let flase_node = no_loc @@ CBool(false) in
+        let binop_node = no_loc @@ Bop(And, exp, flase_node) in
+        cmp_exp c binop_node
+      | Bitnot -> failwith "Bitnot unimplemented"
+    )
+  | _ -> failwith "cmp_exp unimplemented"
 
 
 (* Compile a statement in context c with return typ rt. Return a new context, 
