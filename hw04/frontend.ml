@@ -178,10 +178,46 @@ let oat_alloc_array (t:Ast.ty) (size:Ll.operand) : Ll.ty * operand * stream =
      correspond to gids that don't quite have the type you want
 
 *)
-let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
-  match exp.elt with
-  | CInt i -> I64, Const(i), []
-  | _ -> failwith "cmp_exp unimplemented"
+
+let int_comp_cnd : Ast.binop -> Ll.cnd option = function
+  | Eq -> Some(Eq)
+  | Neq -> Some(Ne)
+  | Lt -> Some(Slt)
+  | Lte -> Some(Sle)
+  | Gt -> Some(Sgt)
+  | Gte -> Some(Sge)
+  | _ -> None
+
+let ll_bop : Ast.binop -> Ll.bop = function
+  | Add -> Add
+  | Sub -> Sub
+  | Mul -> Mul
+  | And -> And
+  | Or -> Or
+  | Shl -> Shl
+  | Shr -> Lshr
+  | Sar -> Ashr
+  | _ -> failwith "unexpected binary operator"
+
+  let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
+    match exp.elt with
+    | CInt i -> I64, Const(i), []
+    | Bop (binop, exp1, exp2) ->
+      let (e1_ty, e1_op, e1_stream) = cmp_exp c exp1 in
+      let (e2_ty, e2_op, e2_stream) = cmp_exp c exp2 in
+      let (_, _, ret_ty) = typ_of_binop binop in
+      let ret_ty = cmp_ty ret_ty in
+      let id = gensym "testname" in (
+        match (int_comp_cnd binop) with
+        | Some(cnd) ->
+          let insn = Icmp(cnd, e1_ty, e1_op, e2_op) in
+          (ret_ty, Id(id), I(id, insn):: e1_stream @ e2_stream)
+        | None -> 
+          let bop = ll_bop binop in
+          let insn = Binop(bop, e1_ty, e1_op, e2_op) in
+          (ret_ty, Id(id), I(id, insn) :: e1_stream @ e2_stream)    
+      )                       
+    | _ -> failwith "cmp_exp unimplemented"
 
 
 (* Compile a statement in context c with return typ rt. Return a new context, 
