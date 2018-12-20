@@ -202,6 +202,7 @@ let ll_bop : Ast.binop -> Ll.bop = function
 let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
   match exp.elt with
   | CInt i -> I64, Const(i), []
+  | CBool b -> I1, Const(if b then Int64.one else Int64.zero), []
   | Bop (binop, exp1, exp2) ->
     let (e1_ty, e1_op, e1_stream) = cmp_exp c exp1 in
     let (e2_ty, e2_op, e2_stream) = cmp_exp c exp2 in
