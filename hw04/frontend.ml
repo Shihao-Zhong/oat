@@ -292,7 +292,9 @@ let rec cmp_stmt (c:Ctxt.t) (rt:Ll.ty) (stmt:Ast.stmt node) : Ctxt.t * stream =
   | Assn(l, r) -> (
       let (r_ty, r_op, r_stream) = cmp_exp c r in
       match l.elt with
-      | Id(id) ->  c, r_stream >:: I("", Store(r_ty, r_op, Id id))
+      | Id(id) -> 
+        let _, dest_op = Ctxt.lookup id c in
+        c, r_stream >:: I("", Store(r_ty, r_op, dest_op))
       | _ -> failwith "cmp_stmt not implemented"
     )
   | If(cnd, t, e) ->
