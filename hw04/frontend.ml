@@ -207,16 +207,16 @@ let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
     let (e2_ty, e2_op, e2_stream) = cmp_exp c exp2 in
     let (_, _, ret_ty) = typ_of_binop binop in
     let ret_ty = cmp_ty ret_ty in
-    let id = gensym "testname" in (
+    let uid = gensym "" in (
       match (int_comp_cnd binop) with
       | Some(cnd) ->
         let insn = Icmp(cnd, e1_ty, e1_op, e2_op) in
-        (ret_ty, Id(id), I(id, insn):: e1_stream @ e2_stream)
+        (ret_ty, Id(uid), e2_stream >@ e1_stream >:: I(uid, insn))
       | None -> 
         let bop = ll_bop binop in
         let insn = Binop(bop, e1_ty, e1_op, e2_op) in
-        (ret_ty, Id(id), I(id, insn) :: e1_stream @ e2_stream)    
-    )                       
+        (ret_ty, Id(uid), e2_stream >@ e1_stream >:: I(uid, insn))    
+    )
   | _ -> failwith "cmp_exp unimplemented"
 
 
@@ -249,7 +249,7 @@ let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
 let rec cmp_stmt (c:Ctxt.t) (rt:Ll.ty) (stmt:Ast.stmt node) : Ctxt.t * stream =
   match stmt.elt with
   | Ret None -> c, [T(Ret(Void, None))]
-  | Ret Some(e) -> let (ty, op, stream) = cmp_exp c e in c, [T(Ret(ty, Some(op)))]
+  | Ret Some(e) -> let (ty, op, stream) = cmp_exp c e in c, stream >@ [T(Ret(ty, Some(op)))]
   | _ -> failwith "cmp_stmt not implemented"
 
 (* Compile a series of statements *)
