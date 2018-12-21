@@ -389,7 +389,15 @@ let cmp_fdecl (c:Ctxt.t) (f:Ast.fdecl node) : Ll.fdecl * (Ll.gid * Ll.gdecl) lis
   let fptyp = f.args |> List.map (fun (ty, _) -> cmp_ty ty) in
   let f_ty = fptyp, frtyp in
   let f_param = f.args |> List.map (fun (_, uid) -> uid) in
-  let (f_cfg, gs) = f.body |> (cmp_block c frtyp) |> cfg_of_stream in
+  let c, f_param_stream = f.args |> List.fold_left (fun (c, stream) (ty, id) ->
+      let ty = cmp_ty ty in
+      let uid = gensym id in
+      let c = Ctxt.add c id (Ptr ty, Id uid) in
+      c, stream >:: E(uid, Alloca ty) >:: I("", Store(ty, Id id, Id uid))
+    ) (c, [])
+  in
+  let body_stream = f.body |> cmp_block c frtyp in
+  let (f_cfg, gs) = cfg_of_stream (f_param_stream >@ body_stream) in
   {f_ty; f_param; f_cfg}, gs
 
 (* Compile a global initializer, returning the resulting LLVMlite global
