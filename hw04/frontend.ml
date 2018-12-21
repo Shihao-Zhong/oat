@@ -219,7 +219,7 @@ let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
         (ret_ty, Id(uid), e2_stream >@ e1_stream >:: I(uid, insn))    
     )
   | Id(id) -> (
-      let (ty, op) = List.assoc id c in
+      let (ty, op) = Ctxt.lookup id c in
       match ty with
       | Ptr(ty) ->
         let uid = gensym "" in
