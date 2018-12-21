@@ -327,6 +327,10 @@ let rec cmp_stmt (c:Ctxt.t) (rt:Ll.ty) (stmt:Ast.stmt node) : Ctxt.t * stream =
     let then_stream = [L(then_lbl)] >@ t_stream >:: jmp_to_post in
     let else_stream = [L(else_lbl)] >@ e_stream >:: jmp_to_post in
     c, [jmp_to_start] >@ start_stream >@ then_stream >@ else_stream >:: L(post_lbl)
+  | SCall(fn, args) ->
+    let call_node = no_loc @@ Call(fn, args) in
+    let _, _, stream = cmp_exp c call_node  in
+    c, stream
   | _ -> failwith "cmp_stmt not implemented"
 and cmp_stmts (c:Ctxt.t) (rt:Ll.ty) (stmts:Ast.block) : Ctxt.t * stream =
   List.fold_left (fun (c, code) s -> 
