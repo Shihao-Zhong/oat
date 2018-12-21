@@ -238,6 +238,20 @@ let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
         cmp_exp c binop_node
       | Bitnot -> failwith "Bitnot unimplemented"
     )
+  | Call({elt=Id(id)}, args) -> (
+      let ptr_fn_ty, op = Ctxt.lookup id c in
+      match ptr_fn_ty with
+      | Ptr Fun(_, ret_ty) -> 
+        let args, stream = List.fold_left (
+            fun (ll_args, code) ast_arg ->
+              let ty, op, stream = cmp_exp c ast_arg in
+              ll_args @ [(ty, op)], code >@ stream
+          ) ([], []) args in
+        let uid = gensym "" in
+        let call: Ll.insn = Call(ret_ty, op, args) in
+        ret_ty, Id(uid), stream >:: I(uid, call)
+      | _ -> failwith "unexpected type for call"
+    )
   | _ -> failwith "cmp_exp unimplemented"
 
 
