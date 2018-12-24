@@ -417,7 +417,7 @@ let cmp_fdecl (c:Ctxt.t) (f:Ast.fdecl node) : Ll.fdecl * (Ll.gid * Ll.gdecl) lis
 *)
 let rec cmp_gexp (c : Ctxt.t) (e:Ast.exp node) : Ll.gdecl * (Ll.gid * Ll.gdecl) list =
   match e.elt with
-  | CBool b ->  (I1, GInt Int64.one), []
+  | CBool b ->  (I1, GInt(if b then Int64.one else Int64.zero)), []
   | CInt i ->  (I64, GInt i), []
   | CStr s ->  (Array (1 + String.length s, I8), GString s), []
   (* | CNull ty      ->  (Ptr (cmp_ty ty), GNull),   [] *)
