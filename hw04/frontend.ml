@@ -305,18 +305,18 @@ let rec cmp_stmt (c:Ctxt.t) (rt:Ll.ty) (stmt:Ast.stmt node) : Ctxt.t * stream =
     let body_stream = [L(body_lbl)] >@ body >:: jmp_to_start in
     c, [jmp_to_start] >@ start_stream >@ body_stream >:: L(else_lbl)
   | For(vdecls, cnd, update_count_stmt, stmts) ->
-    let vdecls_stream = List.fold_left(fun stream_acc vdecl ->
-      let (c, stream) = cmp_stmt c (Ptr I8) (no_loc (Decl vdecl)) in (* todo: unsure of Ptr I8 *)
-      stream_acc >@ stream
-    ) [] vdecls in
+    let c, vdecls_stream = List.fold_left(fun (c, stream_acc) vdecl ->
+        let (c, stream) = cmp_stmt c rt (no_loc (Decl vdecl)) in
+        c, stream_acc >@ stream
+      ) (c, []) vdecls in
     let cnd = match cnd with
       | Some(exp) -> exp
       | None -> no_loc (CBool true)
-      in
+    in
     let update_count_stmt = match update_count_stmt with 
       | Some(stmt) -> [stmt]
       | None -> []
-      in
+    in
     let while_stmt = While(cnd, (stmts @ update_count_stmt)) in
     let c, body_stream = cmp_stmt c rt {elt = while_stmt; loc = stmt.loc}in
     c, vdecls_stream >@ body_stream
