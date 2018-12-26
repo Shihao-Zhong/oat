@@ -220,10 +220,10 @@ let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
     )
   | Id(id) -> (
       let (ty, op) = Ctxt.lookup id c in
+      let uid = gensym "" in
       match ty with
-      | Ptr(ty) ->
-        let uid = gensym "" in
-        ty, Id(uid), [I(uid, Load(Ptr(ty), op))]
+      | Ptr(Array(s, ty)) -> Ptr(ty), Id(uid), [I(uid, Bitcast(Ptr(Array(s, ty)), op,  Ptr(ty)))]
+      | Ptr(ty) -> ty, Id(uid), [I(uid, Load(Ptr(ty), op))]
       | _ -> failwith "Id expects a Ptr"
     )
   | Uop(op, exp) -> (
@@ -380,11 +380,11 @@ let cmp_global_ctxt (c:Ctxt.t) (p:Ast.prog) : Ctxt.t =
   List.fold_left (fun c -> function
       | Ast.Gvdecl { elt = {name; init} } -> (
           let ty = match init.elt with
-            | CNull ty      -> Ptr (cmp_ty ty)
             | CBool _       -> Ptr I1
             | CInt _        -> Ptr I64
-            | CStr _        -> Ptr I8
-            | CArr (ty, _)  -> Ptr (Struct [I64; Array(0, cmp_ty ty)])
+            | CStr s        -> Ptr (Array (1 + String.length s, I8))
+            (* | CNull ty      -> Ptr (cmp_ty ty)
+               | CArr (ty, _)  -> Ptr (Struct [I64; Array(0, cmp_ty ty)]) *)
             | _ -> failwith "unsupported type"
           in
           Ctxt.add c name (ty, Gid name)
