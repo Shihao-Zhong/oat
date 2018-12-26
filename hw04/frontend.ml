@@ -253,20 +253,20 @@ let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
       | _ -> failwith "unexpected type for call"
     )
   | NewArr(ty, exp) -> (
-    let _, len_op, len_stream = cmp_exp c exp in
-    let arr_ty, arr_op, alloc_arr_stream = oat_alloc_array ty len_op in
-    arr_ty, arr_op, len_stream >@ alloc_arr_stream
+      let _, len_op, len_stream = cmp_exp c exp in
+      let arr_ty, arr_op, alloc_arr_stream = oat_alloc_array ty len_op in
+      arr_ty, arr_op, len_stream >@ alloc_arr_stream
     )
   | Index(arr_exp, ind_exp) -> (
-    let arr_ty, arr_op, arr_stream = cmp_exp c arr_exp in
-    let _, ind_op, ind_stream = cmp_exp c ind_exp in
-    match arr_ty with
-    | Ptr(Struct [_; Array(_, ty)]) ->
-      let uid = gensym "" in
-      let index_ins = Gep(arr_ty, Const(Int64.zero), [Const(Int64.one); ind_op]) in
-      ty, Id(uid), arr_stream >@ ind_stream >:: I(uid, index_ins)
-    | _ -> failwith "unexpected array type"
-  )
+      let arr_ty, arr_op, arr_stream = cmp_exp c arr_exp in
+      let _, ind_op, ind_stream = cmp_exp c ind_exp in
+      match arr_ty with
+      | Ptr(Struct [_; Array(_, ty)]) ->
+        let uid = gensym "" in
+        let index_ins = Gep(arr_ty, arr_op, [Const(Int64.zero); Const(Int64.one); ind_op]) in
+        ty, Id(uid), arr_stream >@ ind_stream >:: I(uid, index_ins)
+      | _ -> failwith "unexpected array type"
+    )
   | _ -> failwith "cmp_exp unimplemented"
 
 
