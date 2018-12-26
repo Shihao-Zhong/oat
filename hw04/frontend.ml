@@ -252,6 +252,11 @@ let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
         ret_ty, Id(uid), stream >:: I(uid, call)
       | _ -> failwith "unexpected type for call"
     )
+  | NewArr(ty, exp) -> (
+    let _, len_op, len_stream = cmp_exp c exp in
+    let arr_ty, arr_op, alloc_arr_stream = oat_alloc_array ty len_op in
+    arr_ty, arr_op, len_stream >@ alloc_arr_stream
+    )
   | _ -> failwith "cmp_exp unimplemented"
 
 
