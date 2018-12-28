@@ -236,7 +236,11 @@ let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
         let flase_node = no_loc @@ CBool(false) in
         let binop_node = no_loc @@ Bop(And, exp, flase_node) in
         cmp_exp c binop_node
-      | Bitnot -> failwith "Bitnot unimplemented"
+      | Bitnot ->
+        let minus_one_node = no_loc @@ CInt(Int64.of_int (-1)) in
+        let mult_node = no_loc @@ Bop(Mul, exp, minus_one_node) in
+        let sub_node = no_loc @@ Bop(Add, mult_node, minus_one_node) in
+        cmp_exp c sub_node
     )
   | Call({elt=Id(id)}, args) -> (
       let ptr_fn_ty, op = Ctxt.lookup id c in
