@@ -338,23 +338,23 @@ let rec cmp_stmt (c:Ctxt.t) (rt:Ll.ty) (stmt:Ast.stmt node) : Ctxt.t * stream =
     let c, body_stream = cmp_stmt c rt {elt = while_stmt; loc = stmt.loc}in
     c, vdecls_stream >@ body_stream
   | Assn(l, r) -> (
-    let (r_ty, r_op, r_stream) = cmp_exp c r in
-    match l.elt with
-    | Id(id) -> 
-      let _, dest_op = Ctxt.lookup id c in
-      c, r_stream >:: I("", Store(r_ty, r_op, dest_op))
-    | Index(arr_exp, ind_exp) -> (
-      let arr_ty, arr_op, arr_stream = cmp_exp c arr_exp in
-      let _, ind_op, ind_stream = cmp_exp c ind_exp in
-      match arr_ty with
-      | Ptr(Struct [_; Array(_, ty)]) ->
-        let ptr_uid = gensym "" in
-        let index_ins = Gep(arr_ty, arr_op, [Const(Int64.zero); Const(Int64.one); ind_op]) in
-        c, arr_stream >@ ind_stream >:: I(ptr_uid, index_ins)
-      | _ -> failwith "expected a Ptr to an Array"
+      let (r_ty, r_op, r_stream) = cmp_exp c r in
+      match l.elt with
+      | Id(id) -> 
+        let _, dest_op = Ctxt.lookup id c in
+        c, r_stream >:: I("", Store(r_ty, r_op, dest_op))
+      | Index(arr_exp, ind_exp) -> (
+          let arr_ty, arr_op, arr_stream = cmp_exp c arr_exp in
+          let _, ind_op, ind_stream = cmp_exp c ind_exp in
+          match arr_ty with
+          | Ptr(Struct [_; Array(_, ty)]) ->
+            let ptr_uid = gensym "" in
+            let index_ins = Gep(arr_ty, arr_op, [Const(Int64.zero); Const(Int64.one); ind_op]) in
+            c, arr_stream >@ ind_stream >:: I(ptr_uid, index_ins)
+          | _ -> failwith "expected a Ptr to an Array"
+        )
+      | _ -> failwith "unexpected type"
     )
-    | _ -> failwith "unexpected type"
-  )
   | If(cnd, t, e) ->
     let (cnd_ty, cnd_op, cnd_stream) = cmp_exp c cnd in
     let c, t_stream = cmp_stmts c rt t in
