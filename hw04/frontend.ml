@@ -262,9 +262,11 @@ let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
       let _, ind_op, ind_stream = cmp_exp c ind_exp in
       match arr_ty with
       | Ptr(Struct [_; Array(_, ty)]) ->
-        let uid = gensym "" in
+        let ptr_uid = gensym "" in
+        let value_uid = gensym "" in
         let index_ins = Gep(arr_ty, arr_op, [Const(Int64.zero); Const(Int64.one); ind_op]) in
-        ty, Id(uid), arr_stream >@ ind_stream >:: I(uid, index_ins)
+        let load_ins = Load(Ptr(ty), Id ptr_uid) in
+        ty, Id(value_uid), arr_stream >@ ind_stream >:: I(ptr_uid, index_ins) >:: I(value_uid, load_ins)
       | _ -> failwith "unexpected array type"
     )
   | _ -> failwith "cmp_exp unimplemented"
