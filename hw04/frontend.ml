@@ -305,10 +305,11 @@ let rec cmp_stmt (c:Ctxt.t) (rt:Ll.ty) (stmt:Ast.stmt node) : Ctxt.t * stream =
     let (ty, op, stream) = cmp_exp c e in
     c, stream >:: T(Ret(ty, Some op))
   | Decl(id, e) ->
+    let uid = gensym "" in
     let (ty, op, stream) = cmp_exp c e in
-    let allocate = E(id, Alloca ty) in
-    let store = I("", Store(ty, op, Id id)) in
-    let c = Ctxt.add c id (Ptr ty, Id id) in
+    let allocate = E(uid, Alloca ty) in
+    let store = I("", Store(ty, op, Id uid)) in
+    let c = Ctxt.add c id (Ptr ty, Id uid) in
     c, stream >:: allocate >:: store
   | While(cnd, stmts) ->
     let (cnd_ty, cnd_op, cnd_stream) = cmp_exp c cnd in
