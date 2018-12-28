@@ -357,7 +357,7 @@ let rec cmp_stmt (c:Ctxt.t) (rt:Ll.ty) (stmt:Ast.stmt node) : Ctxt.t * stream =
           | Ptr(Struct [_; Array(_, ty)]) ->
             let ptr_uid = gensym "" in
             let index_ins = Gep(arr_ty, arr_op, [Const(Int64.zero); Const(Int64.one); ind_op]) in
-            c, arr_stream >@ ind_stream >:: I(ptr_uid, index_ins)
+            c, r_stream >@ arr_stream >@ ind_stream >:: I(ptr_uid, index_ins) >:: I("", Store(r_ty, r_op, Id ptr_uid))
           | _ -> failwith "expected a Ptr to an Array"
         )
       | _ -> failwith "unexpected type"
