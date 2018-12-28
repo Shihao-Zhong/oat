@@ -417,8 +417,8 @@ let cmp_global_ctxt (c:Ctxt.t) (p:Ast.prog) : Ctxt.t =
             | CBool _       -> Ptr I1
             | CInt _        -> Ptr I64
             | CStr s        -> Ptr (Array (1 + String.length s, I8))
-            (* | CNull ty      -> Ptr (cmp_ty ty)
-               | CArr (ty, _)  -> Ptr (Struct [I64; Array(0, cmp_ty ty)]) *)
+            | CArr (ty, es)  -> Ptr (Struct [I64; Array(List.length es, cmp_ty ty)])
+            (* | CNull ty      -> Ptr (cmp_ty ty) *)
             | _ -> failwith "unsupported type"
           in
           Ctxt.add c name (ty, Gid name)
@@ -470,8 +470,8 @@ let rec cmp_gexp (c : Ctxt.t) (e:Ast.exp node) : Ll.gdecl * (Ll.gid * Ll.gdecl) 
   | CBool b ->  (I1, GInt(if b then Int64.one else Int64.zero)), []
   | CInt i ->  (I64, GInt i), []
   | CStr s ->  (Array (1 + String.length s, I8), GString s), []
+  (* | CArr(ty, es)  ->  *)
   (* | CNull ty      ->  (Ptr (cmp_ty ty), GNull),   [] *)
-  (* | CArr(ty, es)  -> *)
   | _ -> failwith "cmp_init not implemented"
 
 
