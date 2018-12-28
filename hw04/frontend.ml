@@ -197,6 +197,8 @@ let ll_bop : Ast.binop -> Ll.bop = function
   | Shl -> Shl
   | Shr -> Lshr
   | Sar -> Ashr
+  | IOr -> Or
+  | IAnd -> And
   | _ -> failwith "unexpected binary operator"
 
 let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
