@@ -275,6 +275,9 @@ let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
         ty, Id(value_uid), arr_stream >@ ind_stream >:: I(ptr_uid, index_ins) >:: I(value_uid, load_ins)
       | _ -> failwith "unexpected array type"
     )
+  | CArr _
+  | CStr _
+  | CNull _
   | _ -> failwith "cmp_exp unimplemented"
 
 
@@ -381,7 +384,6 @@ let rec cmp_stmt (c:Ctxt.t) (rt:Ll.ty) (stmt:Ast.stmt node) : Ctxt.t * stream =
     let call_node = no_loc @@ Call(fn, args) in
     let _, _, stream = cmp_exp c call_node  in
     c, stream
-  | _ -> failwith "cmp_stmt not implemented"
 and cmp_stmts (c:Ctxt.t) (rt:Ll.ty) (stmts:Ast.block) : Ctxt.t * stream =
   List.fold_left (fun (c, code) s -> 
       let c, stmt_code = cmp_stmt c rt s in
@@ -418,7 +420,7 @@ let cmp_global_ctxt (c:Ctxt.t) (p:Ast.prog) : Ctxt.t =
             | CInt _        -> Ptr I64
             | CStr s        -> Ptr (Array (1 + String.length s, I8))
             | CArr (ty, es)  -> Ptr (Struct [I64; Array(List.length es, cmp_ty ty)])
-            (* | CNull ty      -> Ptr (cmp_ty ty) *)
+            | CNull ty      -> Ptr (cmp_ty ty)
             | _ -> failwith "unsupported type"
           in
           Ctxt.add c name (ty, Gid name)
@@ -470,8 +472,14 @@ let rec cmp_gexp (c : Ctxt.t) (e:Ast.exp node) : Ll.gdecl * (Ll.gid * Ll.gdecl) 
   | CBool b ->  (I1, GInt(if b then Int64.one else Int64.zero)), []
   | CInt i ->  (I64, GInt i), []
   | CStr s ->  (Array (1 + String.length s, I8), GString s), []
-  (* | CArr(ty, es)  ->  *)
-  (* | CNull ty      ->  (Ptr (cmp_ty ty), GNull),   [] *)
+  | CArr(ty, es)  -> (
+    let arr_ty = Array(List.length es, cmp_ty ty) in
+    let cmp_es = List.map (fun e -> cmp_gexp c e) es in
+    let arr_init = GArray (List.map (fun (gdcl, _) -> gdcl) cmp_es) in
+    let others = List.flatten (List.map (fun (_, other) -> other) cmp_es) in
+    (arr_ty, arr_init), others;
+  )
+  | CNull ty      ->  (Ptr (cmp_ty ty), GNull),   []
   | _ -> failwith "cmp_init not implemented"
 
 
