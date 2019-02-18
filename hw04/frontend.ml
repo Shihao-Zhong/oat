@@ -278,18 +278,18 @@ let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
   | CArr (e_ty, es) -> (
     let itc n = Const (Int64.of_int n) in
     let size = List.length es in
-    let arr_ty, op, arr_init_stream = oat_alloc_array e_ty (Const (Int64.of_int size)) in 
+    let arr_ty, arr_op, arr_init_stream = oat_alloc_array e_ty (Const (Int64.of_int size)) in 
     let cmp_es = List.map (fun e -> cmp_exp c e) es in
     let es_stream = cmp_es |> List.map (fun (_, _, s) -> s) |> List.flatten in 
     let store_elms_stream = cmp_es|> List.mapi (fun i (ty, op, _) -> 
       let gep_uid = gensym "" in
-      let gep_ins = Gep (arr_ty, Id gep_uid, [itc 0; itc 1; itc i]) in
+      let gep_ins = Gep (arr_ty, arr_op, [itc 0; itc 1; itc i]) in
       let store_uid = gensym "" in
       let store_ins = Store (ty, op, Id gep_uid) in
       lift [gep_uid, gep_ins; store_uid, store_ins]
     ) |> List.flatten in
     let res_stream = es_stream >@ arr_init_stream >@ store_elms_stream in
-    arr_ty, op, res_stream
+    arr_ty, arr_op, res_stream
   )
   | CStr _ -> failwith "CStr unimplemented"
   | CNull _ -> failwith "CNull unimplemented"
