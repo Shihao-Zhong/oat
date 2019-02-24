@@ -291,7 +291,15 @@ let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
     let res_stream = es_stream >@ arr_init_stream >@ store_elms_stream in
     arr_ty, arr_op, res_stream
   )
-  | CStr _ -> failwith "CStr unimplemented"
+  | CStr s -> (
+    let res_ty, res_id = cmp_ty (TRef RString), gensym "result_id" in
+    let raw_ty, raw_gid = Array (1 + String.length s, I8), gensym "raw_string" in
+    let gdecl = (raw_ty, GString s) in
+    res_ty, Id res_id, [
+      G (raw_gid, gdecl);
+      I (res_id, Bitcast(Ptr raw_ty, Gid raw_gid, res_ty))
+    ]
+  )
   | CNull ty -> cmp_ty ty, Null, []
   | _ -> failwith "cmp_exp unimplemented"
 
