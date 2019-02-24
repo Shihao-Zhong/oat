@@ -292,7 +292,7 @@ let rec cmp_exp (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.operand * stream =
     arr_ty, arr_op, res_stream
   )
   | CStr _ -> failwith "CStr unimplemented"
-  | CNull _ -> failwith "CNull unimplemented"
+  | CNull ty -> cmp_ty ty, Null, []
   | _ -> failwith "cmp_exp unimplemented"
 
 
