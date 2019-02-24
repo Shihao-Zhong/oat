@@ -494,7 +494,7 @@ let rec cmp_gexp (c : Ctxt.t) (e:Ast.exp node) : Ll.gdecl * (Ll.gid * Ll.gdecl) 
     let others = List.flatten (List.map (fun (_, other) -> other) cmp_es) in
     (arr_ty, arr_init), others;
   )
-  | CNull ty      ->  (Ptr (cmp_ty ty), GNull),   []
+  | CNull ty      ->  (cmp_ty ty, GNull),   []
   | _ -> failwith "cmp_init not implemented"
 
 
