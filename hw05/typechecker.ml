@@ -164,11 +164,24 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
   )
   | CArr(ty, es) -> (
     typecheck_ty e c ty;
-    let ex_tys = List.map (fun e -> typecheck_exp c e) es in
-    let args_pred = List.fold_left (fun acc t -> acc && subtype c t ty) true ex_tys in
-    match args_pred with
-    | false -> type_error e "Bad Array initializer expression"
+    let exp_tys = List.map (fun e -> typecheck_exp c e) es in
+    let init_pred = List.fold_left (fun acc t -> acc && subtype c t ty) true exp_tys in
+    match init_pred with
+    | false -> type_error e "bad array element type"
     | true -> TRef(RArray(ty))
+  )
+  | NewArr(ty, len, id, init) -> (
+    typecheck_ty e c ty;
+    let len_pred = typecheck_exp c len == TInt in
+    let id_pred = match Tctxt.lookup_local_option id c with None -> true | Some _ -> false in
+    let init_exp_ty = typecheck_exp (Tctxt.add_local c id TInt) init in
+    let init_pred = subtype c init_exp_ty ty in
+    match len_pred, id_pred, init_pred with
+    | true, true, true -> TRef(RArray(ty))
+    | false, _, _ -> type_error e "bad array length expression type"
+    | _, false, _ -> type_error e "array init identifier exists in the local context"
+    | _, _, false -> type_error e "bad array init expression type"
+
   )
   | _ -> type_error e "todo: implement typecheck_exp"
 
