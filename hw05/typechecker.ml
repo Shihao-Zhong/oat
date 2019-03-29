@@ -57,9 +57,37 @@ let rec subtype (c : Tctxt.t) (t1 : Ast.ty) (t2 : Ast.ty) : bool =
 
 (* Decides whether H |-r ref1 <: ref2 *)
 and subtype_ref (c : Tctxt.t) (t1 : Ast.rty) (t2 : Ast.rty) : bool =
-  failwith "todo: subtype_ref"
+  match t1, t2 with
+  | RString, RString -> true
+  | RArray(t1), RArray(t2) -> t1 == t2
+  | RStruct(id1), RStruct(id2) -> subtype_struct c id1 id2
+  | RFun(args1, ret1), RFun(args2, ret2) -> subtype_func c args1 args2 ret1 ret2
+  | _ -> false
 
+and subtype_ret_ty (c : Tctxt.t) (t1 : Ast.ret_ty) (t2 : Ast.ret_ty) : bool =
+  match t1, t2 with
+  | RetVoid, RetVoid -> true
+  | RetVal(t1), RetVal(t2) -> subtype c t1 t2
+  | _ -> false
 
+and subtype_func c args1 args2 ret1 ret2 : bool = 
+  let args_len_equal = List.length args1 == List.length args2 in
+  let args_cond = List.fold_left2(
+    fun acc arg1 arg2 -> acc && subtype c arg2 arg1
+  ) true args1 args2 in
+  let ret_cond = subtype_ret_ty c ret1 ret2 in
+  args_cond && ret_cond && args_len_equal
+
+and subtype_struct c s_id1 s_id2 : bool =
+  let struct2 = Tctxt.lookup_struct s_id2 c in
+  List.fold_left (
+    fun acc field -> acc && 
+      let res = Tctxt.lookup_field_option s_id1 field.fieldName c in
+      match res with
+      | None -> false
+      | Some(t) -> t == field.ftyp
+  ) true struct2
+  
 (* well-formed types -------------------------------------------------------- *)
 (* Implement a (set of) functions that check that types are well formed according
    to the H |- t and related inference rules
