@@ -149,7 +149,29 @@ and typecheck_ret_ty  (l : 'a Ast.node) (tc : Tctxt.t) (t : Ast.ret_ty) : unit =
 
 *)
 let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
-  failwith "todo: implement typecheck_exp"
+  match e.elt with
+  | CNull(rty) -> (
+    typecheck_ref_ty e c rty;
+    TNullRef(rty)
+  )
+  | CBool _-> TBool
+  | CInt _ -> TInt
+  | CStr _ -> TRef(RString)
+  | Id id -> (
+    match (Tctxt.lookup_option id c) with
+    | None -> type_error e "Undefined Identifier"
+    | Some ty -> ty
+  )
+  | CArr(ty, es) -> (
+    typecheck_ty e c ty;
+    let ex_tys = List.map (fun e -> typecheck_exp c e) es in
+    let args_pred = List.fold_left (fun acc t -> acc && subtype c t ty) true ex_tys in
+    match args_pred with
+    | false -> type_error e "Bad Array initializer expression"
+    | true -> TRef(RArray(ty))
+  )
+  | _ -> type_error e "todo: implement typecheck_exp"
+
 
 (* statements --------------------------------------------------------------- *)
 
