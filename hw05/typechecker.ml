@@ -181,7 +181,21 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     | false, _, _ -> type_error e "bad array length expression type"
     | _, false, _ -> type_error e "array init identifier exists in the local context"
     | _, _, false -> type_error e "bad array init expression type"
-
+  )
+  | Index(arr, ind) -> (
+    let ind_ty = typecheck_exp c ind in
+    let arr_ty = typecheck_exp c arr in
+    match arr_ty, ind_ty with
+    | TRef(RArray(t)), TInt -> t
+    | TRef(RArray(_)), _ -> type_error e "invalid index type in array index expression"
+    | _, TInt -> type_error e "invalid array in array index expression"
+    | _, _ -> type_error e "invalid array index expression"
+  )
+  | Length(arr) -> (
+    let arr_ty = typecheck_exp c arr in
+    match arr_ty with
+    | TRef(RArray(_))-> TInt
+    | _ -> type_error e "invalid array type in array length expression"
   )
   | _ -> type_error e "todo: implement typecheck_exp"
 
