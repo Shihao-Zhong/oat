@@ -197,6 +197,22 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     | TRef(RArray(_))-> TInt
     | _ -> type_error e "invalid array type in array length expression"
   )
+  | CStruct(s_id, fields) -> (
+    let fields_subtype_pred = List.fold_left(fun acc (f_id, f_init_exp) -> acc &&
+      let f_init_ty = typecheck_exp c f_init_exp in
+      match Tctxt.lookup_field_option s_id f_id c with
+      | None -> false
+      | Some f_ty -> subtype c f_init_ty f_ty
+    ) true fields in
+    let expected_struct_fields = Tctxt.lookup_struct s_id c in
+    let all_fields_present_pred = List.fold_left(
+      fun acc f -> acc && List.exists (fun (id, _) -> id == f.fieldName) fields
+    ) true expected_struct_fields in
+    match fields_subtype_pred, all_fields_present_pred with
+    | true, true -> TRef(RStruct s_id)
+    | false, _ -> type_error e "unexpected field type"
+    | _, false -> type_error e "missing fields"
+  )
   | _ -> type_error e "todo: implement typecheck_exp"
 
 
