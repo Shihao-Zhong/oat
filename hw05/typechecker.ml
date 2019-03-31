@@ -213,6 +213,32 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     | false, _ -> type_error e "unexpected field type"
     | _, false -> type_error e "missing fields"
   )
+  | Proj(s, f_id) -> (
+    let s_ty = typecheck_exp c s in
+    match s_ty with
+    | TRef(RStruct s_id) -> (
+      let f_ty = Tctxt.lookup_field_option s_id f_id c in
+      match f_ty with
+      | None -> type_error e "unexpected field id in struct projection"
+      | Some ty -> ty
+    )
+    | _ -> type_error e "unexpected struct type in struct projection"
+  )
+  | Call(fun_id, args) -> (
+    let params, ret_ty = match typecheck_exp c fun_id with
+    | TRef(RFun(params, ret_ty)) -> params, ret_ty
+    | _ -> type_error e "identifier is not a function in function" in
+
+    let args_ty = List.map(fun arg -> typecheck_exp c arg) args in
+    let args_ty_pred = List.fold_left2(fun acc param arg -> acc && subtype c arg param) true params args_ty in
+    let arg_len_pred = List.length params == List.length args in
+
+    match args_ty_pred, arg_len_pred, ret_ty with
+    | true, true, RetVal(ret_ty)  -> ret_ty
+    | false, _, _ -> type_error e "unexpected argument types in function calls"
+    | _, false, _ -> type_error e "unexpected number of arguments"
+    | _, _, RetVoid -> type_error e "todo: how to handle function returning Void -_-"
+  )
   | _ -> type_error e "todo: implement typecheck_exp"
 
 
