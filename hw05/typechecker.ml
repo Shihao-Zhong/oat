@@ -60,9 +60,9 @@ let rec subtype (c : Tctxt.t) (t1 : Ast.ty) (t2 : Ast.ty) : bool =
 and subtype_ref (c : Tctxt.t) (t1 : Ast.rty) (t2 : Ast.rty) : bool =
   match t1, t2 with
   | RString, RString -> true
-  | RArray t1, RArray t2 -> t1 == t2
+  | RArray t1, RArray t2 -> t1 = t2
   | RStruct id1, RStruct id2 -> subtype_struct c id1 id2
-  | RFun(args1, ret1), RFun(args2, ret2) -> subtype_func c args1 args2 ret1 ret2
+  | RFun(args, ret), RFun(args', ret') -> subtype_func c args ret args' ret'
   | _ -> false
 
 (* Decides whether H |-r ret_ty1 <: ret_ty2 *)
@@ -72,20 +72,22 @@ and subtype_ret_ty (c : Tctxt.t) (t1 : Ast.ret_ty) (t2 : Ast.ret_ty) : bool =
   | RetVal(t1), RetVal(t2) -> subtype c t1 t2
   | _ -> false
 
-and subtype_func c args1 args2 ret1 ret2 : bool = 
-  let args_pred = List.length args1 == List.length args2 in
-  let args_pred = args_pred && List.fold_left2(fun acc arg arg' -> acc && subtype c arg' arg) true args1 args2 in
-  let ret_pred = subtype_ret_ty c ret1 ret2 in
+and subtype_func c args ret args' ret' : bool = 
+  let args_pred = List.length args = List.length args' in
+  let args_pred = args_pred && List.fold_left2(fun acc arg arg' -> acc && subtype c arg' arg) true args args' in
+  let ret_pred = subtype_ret_ty c ret ret' in
   args_pred && ret_pred
 
-and subtype_struct c id1 id2 : bool =
-  let s2 = Tctxt.lookup_struct id2 c in
-  List.fold_left (fun acc field -> acc && 
-    let res = Tctxt.lookup_field_option id1 field.fieldName c in
-    match res with
-    | None -> false
-    | Some t -> t == field.ftyp
-  ) true s2
+and subtype_struct c s1 s2 : bool = s1 = s2 ||
+  match Tctxt.lookup_struct_option s2 c with
+  | None -> false
+  | Some s2_fields ->
+    List.fold_left (fun acc field -> acc && 
+      let res = Tctxt.lookup_field_option s1 field.fieldName c in
+      match res with
+      | None -> false
+      | Some t -> t = field.ftyp
+    ) true s2_fields
   
 (* well-formed types -------------------------------------------------------- *)
 (* Implement a (set of) functions that check that types are well formed according
@@ -173,7 +175,7 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
   )
   | NewArr(ty, len, id, init) -> (
     typecheck_ty e c ty;
-    let len_pred = typecheck_exp c len == TInt in
+    let len_pred = typecheck_exp c len = TInt in
     let id_pred = match Tctxt.lookup_local_option id c with None -> true | Some _ -> false in
     let init_exp_ty = typecheck_exp (Tctxt.add_local c id TInt) init in
     let init_pred = subtype c init_exp_ty ty in
@@ -207,7 +209,7 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     ) true fields in
     let expected_struct_fields = Tctxt.lookup_struct s_id c in
     let all_fields_present_pred = List.fold_left(
-      fun acc f -> acc && List.exists (fun (id, _) -> id == f.fieldName) fields
+      fun acc f -> acc && List.exists (fun (id, _) -> id = f.fieldName) fields
     ) true expected_struct_fields in
     match fields_subtype_pred, all_fields_present_pred with
     | true, true -> TRef(RStruct s_id)
@@ -232,7 +234,7 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
 
     let args_ty = List.map(fun arg -> typecheck_exp c arg) args in
     let args_ty_pred = List.fold_left2(fun acc param arg -> acc && subtype c arg param) true params args_ty in
-    let arg_len_pred = List.length params == List.length args in
+    let arg_len_pred = List.length params = List.length args in
 
     match args_ty_pred, arg_len_pred, ret_ty with
     | true, true, RetVal(ret_ty)  -> ret_ty
@@ -251,8 +253,8 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
   )
   | Bop (biop, l, r) -> (
     let l_ty, r_ty, ret_ty = typ_of_binop biop in
-    let l_pred = typecheck_exp c l == l_ty in
-    let r_pred = typecheck_exp c r == r_ty in
+    let l_pred = typecheck_exp c l = l_ty in
+    let r_pred = typecheck_exp c r = r_ty in
     match l_pred, r_pred with
     | true, true -> ret_ty
     | false, _ -> type_error e (pp "expected left operand to have type %s" @@ string_of_ty l_ty)
@@ -260,7 +262,7 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
   ) 
   | Uop (uop, exp) -> (
     let exp_ty, ret_ty = typ_of_unop uop in
-    let exp_pred = typecheck_exp c exp == exp_ty in
+    let exp_pred = typecheck_exp c exp = exp_ty in
     match exp_pred with
     | true -> ret_ty
     | false -> type_error e (pp "expected a operand of type %s" @@ string_of_ty exp_ty)
