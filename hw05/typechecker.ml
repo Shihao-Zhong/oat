@@ -239,6 +239,31 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     | _, false, _ -> type_error e "unexpected number of arguments"
     | _, _, RetVoid -> type_error e "todo: how to handle function returning Void -_-"
   )
+  | Bop (Neq, l, r)
+  | Bop (Eq, l, r) -> (
+    let l_ty = typecheck_exp c l in
+    let r_ty = typecheck_exp c r in
+    match subtype c l_ty r_ty, subtype c r_ty l_ty with
+    | true, true -> TBool
+    | false, _ -> type_error e "left operand is not a subtype of the right operand"
+    | _, false -> type_error e "right operand is not a subtype of the left operand"
+  )
+  | Bop (biop, l, r) -> (
+    let l_ty, r_ty, ret_ty = typ_of_binop biop in
+    let l_pred = typecheck_exp c l == l_ty in
+    let r_pred = typecheck_exp c r == r_ty in
+    match l_pred, r_pred with
+    | true, true -> ret_ty
+    | false, _ -> type_error e "unexpected type for the left operand of binary operation"
+    | _, false -> type_error e "unexpected type for the right operand of binary operation"
+  ) 
+  | Uop (uop, exp) -> (
+    let exp_ty, ret_ty = typ_of_unop uop in
+    let exp_pred = typecheck_exp c exp == exp_ty in
+    match exp_pred with
+    | true -> ret_ty
+    | false -> type_error e "unexpected operand type"
+  )
   | _ -> type_error e "todo: implement typecheck_exp"
 
 
