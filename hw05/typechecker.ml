@@ -11,6 +11,7 @@ let type_error (l : 'a node) err =
   let (_, (s, e), _) = l.loc in
   raise (TypeError (Printf.sprintf "[%d, %d] %s" s e err))
 
+let pp = Printf.sprintf
 
 (* initial context: G0 ------------------------------------------------------ *)
 (* The Oat types of the Oat built-in functions *)
@@ -111,7 +112,7 @@ and typecheck_ref_ty  (l : 'a Ast.node) (tc : Tctxt.t) (t : Ast.rty) : unit =
   | RArray ty -> typecheck_ty l tc ty
   | RStruct id -> (
     match Tctxt.lookup_struct_option id tc with
-    | None -> type_error l "Undefined Struct"
+    | None -> type_error l (pp "undefined struct %s" id)
     | Some _ -> ()
   )
   | RFun(params, ret_ty) -> (
@@ -159,7 +160,7 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
   | CStr _ -> TRef(RString)
   | Id id -> (
     match (Tctxt.lookup_option id c) with
-    | None -> type_error e "Undefined Identifier"
+    | None -> type_error e (pp "undefined Identifier %s" id)
     | Some ty -> ty
   )
   | CArr(ty, es) -> (
@@ -167,7 +168,7 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     let exp_tys = List.map (fun e -> typecheck_exp c e) es in
     let init_pred = List.fold_left (fun acc t -> acc && subtype c t ty) true exp_tys in
     match init_pred with
-    | false -> type_error e "bad array element type"
+    | false -> type_error e "unexpected array element type"
     | true -> TRef(RArray(ty))
   )
   | NewArr(ty, len, id, init) -> (
@@ -178,24 +179,24 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     let init_pred = subtype c init_exp_ty ty in
     match len_pred, id_pred, init_pred with
     | true, true, true -> TRef(RArray(ty))
-    | false, _, _ -> type_error e "bad array length expression type"
-    | _, false, _ -> type_error e "array init identifier exists in the local context"
-    | _, _, false -> type_error e "bad array init expression type"
+    | false, _, _ -> type_error e "expected a length of type Int"
+    | _, false, _ -> type_error e (pp "array init identifier [%s] is defined in the local context" id)
+    | _, _, false -> type_error e (pp "expected an init expression of type %s" @@ string_of_ty ty)
   )
   | Index(arr, ind) -> (
     let ind_ty = typecheck_exp c ind in
     let arr_ty = typecheck_exp c arr in
     match arr_ty, ind_ty with
-    | TRef(RArray(t)), TInt -> t
-    | TRef(RArray(_)), _ -> type_error e "invalid index type in array index expression"
-    | _, TInt -> type_error e "invalid array in array index expression"
-    | _, _ -> type_error e "invalid array index expression"
+    | TRef(RArray(ty)), TInt -> ty
+    | TRef(RArray(_)), ty -> type_error e (pp "expected an index of type Int but if found a %s" @@ string_of_ty ty)
+    | ty, TInt -> type_error e (pp "expected an expression of type TRef(TArray(t)) but it found a %s" @@ string_of_ty ty)
+    | _, _ -> type_error e "both the expression and index have incorrect types"
   )
   | Length(arr) -> (
     let arr_ty = typecheck_exp c arr in
     match arr_ty with
     | TRef(RArray(_))-> TInt
-    | _ -> type_error e "invalid array type in array length expression"
+    | ty -> type_error e (pp "expected an expression of type TRef(RArray(ty)) but it found a %s" @@ string_of_ty ty)
   )
   | CStruct(s_id, fields) -> (
     let fields_subtype_pred = List.fold_left(fun acc (f_id, f_init_exp) -> acc &&
@@ -210,8 +211,8 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     ) true expected_struct_fields in
     match fields_subtype_pred, all_fields_present_pred with
     | true, true -> TRef(RStruct s_id)
-    | false, _ -> type_error e "unexpected field type"
-    | _, false -> type_error e "missing fields"
+    | false, _ -> type_error e "expression does not have the correct field type"
+    | _, false -> type_error e "you need to initialize all the struct fields"
   )
   | Proj(s, f_id) -> (
     let s_ty = typecheck_exp c s in
@@ -219,15 +220,15 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     | TRef(RStruct s_id) -> (
       let f_ty = Tctxt.lookup_field_option s_id f_id c in
       match f_ty with
-      | None -> type_error e "unexpected field id in struct projection"
+      | None -> type_error e (pp "undefined field %s" f_id)
       | Some ty -> ty
     )
-    | _ -> type_error e "unexpected struct type in struct projection"
+    | ty -> type_error e (pp "expected an expression of type struct but it received a %s" @@ string_of_ty ty)
   )
   | Call(fun_id, args) -> (
     let params, ret_ty = match typecheck_exp c fun_id with
     | TRef(RFun(params, ret_ty)) -> params, ret_ty
-    | _ -> type_error e "identifier is not a function in function" in
+    | ty -> type_error e (pp "identifier of type %s is not a function" @@ string_of_ty ty) in
 
     let args_ty = List.map(fun arg -> typecheck_exp c arg) args in
     let args_ty_pred = List.fold_left2(fun acc param arg -> acc && subtype c arg param) true params args_ty in
@@ -235,7 +236,7 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
 
     match args_ty_pred, arg_len_pred, ret_ty with
     | true, true, RetVal(ret_ty)  -> ret_ty
-    | false, _, _ -> type_error e "unexpected argument types in function calls"
+    | false, _, _ -> type_error e "unexpected argument types in function call"
     | _, false, _ -> type_error e "unexpected number of arguments"
     | _, _, RetVoid -> type_error e "todo: how to handle function returning Void -_-"
   )
@@ -245,8 +246,8 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     let r_ty = typecheck_exp c r in
     match subtype c l_ty r_ty, subtype c r_ty l_ty with
     | true, true -> TBool
-    | false, _ -> type_error e "left operand is not a subtype of the right operand"
-    | _, false -> type_error e "right operand is not a subtype of the left operand"
+    | false, _ -> type_error e (pp "a left operand of type %s is not a subtype of a right operand of type %s" (string_of_ty l_ty) (string_of_ty r_ty))
+    | _, false -> type_error e (pp "a right operand of type %s is not a subtype of a left operand of type %s" (string_of_ty r_ty) (string_of_ty l_ty))
   )
   | Bop (biop, l, r) -> (
     let l_ty, r_ty, ret_ty = typ_of_binop biop in
@@ -254,18 +255,16 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     let r_pred = typecheck_exp c r == r_ty in
     match l_pred, r_pred with
     | true, true -> ret_ty
-    | false, _ -> type_error e "unexpected type for the left operand of binary operation"
-    | _, false -> type_error e "unexpected type for the right operand of binary operation"
+    | false, _ -> type_error e (pp "expected left operand to have type %s" @@ string_of_ty l_ty)
+    | _, false -> type_error e (pp "expected right operand to have type %s" @@ string_of_ty l_ty)
   ) 
   | Uop (uop, exp) -> (
     let exp_ty, ret_ty = typ_of_unop uop in
     let exp_pred = typecheck_exp c exp == exp_ty in
     match exp_pred with
     | true -> ret_ty
-    | false -> type_error e "unexpected operand type"
+    | false -> type_error e (pp "expected a operand of type %s" @@ string_of_ty exp_ty)
   )
-  | _ -> type_error e "todo: implement typecheck_exp"
-
 
 (* statements --------------------------------------------------------------- *)
 
