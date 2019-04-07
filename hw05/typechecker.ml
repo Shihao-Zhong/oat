@@ -363,6 +363,21 @@ let rec has_duplicates list proj =
     | hd::tl -> List.exists (fun e -> proj e = proj hd) tl || has_duplicates tl proj
     | [] -> false
 
+(* make sure tc only includes struct and function declarations
+   because global initializers cannot mention other global values *)
+let rec typecheck_gexp (tc : Tctxt.t) (e : Ast.exp node) : Ast.ty =
+  match e.elt with
+  | CNull _ | CBool _ | CInt _ | CStr _ | CArr _  | Id _ -> typecheck_exp tc e 
+  | CStruct (sid, fields) -> (
+    let field_tys = List.map (fun (fid, _) -> Tctxt.lookup_field sid fid tc) fields in
+    let init_tys = List.map (fun (_, init) -> typecheck_gexp tc init) fields in
+    let field_pred = List.fold_left2 (fun acc exp_ty ty  -> acc && subtype tc ty exp_ty) true field_tys init_tys in
+    match field_pred with
+    | true -> TRef (RStruct sid)
+    | false -> type_error e "invalid field initializer"
+  )
+  | _ -> type_error e "unexpected global initializer"
+
 let create_struct_ctxt (p:Ast.prog) : Tctxt.t =
   List.fold_left (fun c decl ->
     match decl with
@@ -391,7 +406,14 @@ let create_function_ctxt (tc:Tctxt.t) (p:Ast.prog) : Tctxt.t =
   ) tc p
 
 let create_global_ctxt (tc:Tctxt.t) (p:Ast.prog) : Tctxt.t =
-  failwith "todo: create_global_ctxt"
+  List.fold_left(fun c decl ->
+    match decl with
+    | Gvdecl(gdecl) -> (
+      let {name; init} = gdecl.elt in
+      Tctxt.add_global c name (typecheck_gexp tc init)
+    ) 
+    | _ -> c
+  ) tc p
 
 
 (* This function implements the |- prog and the H ; G |- prog 
