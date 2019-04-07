@@ -377,7 +377,18 @@ let create_struct_ctxt (p:Ast.prog) : Tctxt.t =
   ) Tctxt.empty p
 
 let create_function_ctxt (tc:Tctxt.t) (p:Ast.prog) : Tctxt.t =
-  failwith "todo: create_function_ctxt"
+  List.fold_left(fun c decl -> 
+    match decl with
+    | Gfdecl(fdecl) -> (
+      let {frtyp; fname; args} = fdecl.elt in
+      match Tctxt.lookup_global_option fname c with
+      | None -> 
+        let arg_tys = List.map (fun (ty, _) -> ty) args in
+        Tctxt.add_global c fname (TRef(RFun(arg_tys, frtyp)))
+      | Some ty -> type_error fdecl (pp "identifier %s was previously was defined as type %s in the current scope" fname (string_of_ty ty))
+    ) 
+    | _ -> c
+  ) tc p
 
 let create_global_ctxt (tc:Tctxt.t) (p:Ast.prog) : Tctxt.t =
   failwith "todo: create_function_ctxt"
