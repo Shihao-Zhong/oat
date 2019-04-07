@@ -358,9 +358,9 @@ let typecheck_fdecl (tc : Tctxt.t) (f : Ast.fdecl) (l : 'a Ast.node) : unit =
    NOTE: global initializers may mention function identifiers as
    constants, but can't mention other global values *)
 
-let rec no_duplicate list proj =
+let rec has_duplicates list proj =
     match list with
-    | hd::tl -> List.exists (fun e -> proj e == proj hd) tl || no_duplicate tl proj
+    | hd::tl -> List.exists (fun e -> proj e = proj hd) tl || has_duplicates tl proj
     | [] -> false
 
 let create_struct_ctxt (p:Ast.prog) : Tctxt.t =
@@ -368,7 +368,7 @@ let create_struct_ctxt (p:Ast.prog) : Tctxt.t =
     match decl with
     | Gtdecl(tdecl) -> (
       let id, fields = tdecl.elt in
-      let field_pred = no_duplicate fields (fun f -> f.fieldName) in
+      let field_pred = not @@ has_duplicates fields (fun f -> f.fieldName) in
       match field_pred with
       | false -> type_error tdecl "duplicate fields in struct definition"
       | true -> Tctxt.add_struct c id fields
@@ -377,7 +377,7 @@ let create_struct_ctxt (p:Ast.prog) : Tctxt.t =
   ) Tctxt.empty p
 
 let create_function_ctxt (tc:Tctxt.t) (p:Ast.prog) : Tctxt.t =
-  List.fold_left(fun c decl -> 
+  List.fold_left(fun c decl ->
     match decl with
     | Gfdecl(fdecl) -> (
       let {frtyp; fname; args} = fdecl.elt in
@@ -391,7 +391,7 @@ let create_function_ctxt (tc:Tctxt.t) (p:Ast.prog) : Tctxt.t =
   ) tc p
 
 let create_global_ctxt (tc:Tctxt.t) (p:Ast.prog) : Tctxt.t =
-  failwith "todo: create_function_ctxt"
+  failwith "todo: create_global_ctxt"
 
 
 (* This function implements the |- prog and the H ; G |- prog 
