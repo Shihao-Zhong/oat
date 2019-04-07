@@ -358,8 +358,23 @@ let typecheck_fdecl (tc : Tctxt.t) (f : Ast.fdecl) (l : 'a Ast.node) : unit =
    NOTE: global initializers may mention function identifiers as
    constants, but can't mention other global values *)
 
+let rec no_duplicate list proj =
+    match list with
+    | hd::tl -> List.exists (fun e -> proj e == proj hd) tl || no_duplicate tl proj
+    | [] -> false
+
 let create_struct_ctxt (p:Ast.prog) : Tctxt.t =
-  failwith "todo: create_struct_ctxt"
+  List.fold_left (fun c decl ->
+    match decl with
+    | Gtdecl(tdecl) -> (
+      let id, fields = tdecl.elt in
+      let field_pred = no_duplicate fields (fun f -> f.fieldName) in
+      match field_pred with
+      | false -> type_error tdecl "duplicate fields in struct definition"
+      | true -> Tctxt.add_struct c id fields
+    )
+    | _ -> c
+  ) Tctxt.empty p
 
 let create_function_ctxt (tc:Tctxt.t) (p:Ast.prog) : Tctxt.t =
   failwith "todo: create_function_ctxt"
