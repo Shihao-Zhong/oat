@@ -339,6 +339,14 @@ let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.
     | true -> tc, false
     | false -> type_error f "[typecheck_stmt][SCall]: unexpected function type"
   )
+  | If(cond, if_block, els_block) -> (
+    let cond_ty = typecheck_exp tc cond in
+    let _, if_block_returns = typecheck_block tc if_block to_ret in
+    let _, els_block_returns = typecheck_block tc els_block to_ret in
+    match cond_ty with
+    | TBool -> tc, if_block_returns && els_block_returns
+    | _ -> type_error cond "[typecheck_stmt][If]: condition is not a boolean expression"  
+  )
   | _ -> failwith "todo: implement typecheck_stmt"
 
 and typecheck_block (tc : Tctxt.t) (block : Ast.block) (to_ret:ret_ty) : Tctxt.t * bool =
