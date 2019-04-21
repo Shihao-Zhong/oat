@@ -438,6 +438,9 @@ let create_struct_ctxt (p:Ast.prog) : Tctxt.t =
   ) Tctxt.empty p
 
 let create_function_ctxt (tc:Tctxt.t) (p:Ast.prog) : Tctxt.t =
+  let tc = List.fold_left (
+    fun tc (id, (param_ty, ret_ty)) -> Tctxt.add_global tc id @@ TRef(RFun(param_ty, ret_ty))
+  ) tc builtins in
   List.fold_left(fun c decl ->
     match decl with
     | Gfdecl(fdecl) -> (
