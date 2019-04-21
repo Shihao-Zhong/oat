@@ -302,7 +302,15 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
      block typecheck rules.
 *)
 let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.t * bool =
-  failwith "todo: implement typecheck_stmt"
+  match s.elt with
+  | Decl (id, exp) -> (
+    let id_pred = Tctxt.lookup_local_option id tc in
+    let ty = typecheck_exp tc exp in
+    match id_pred with
+    | None -> Tctxt.add_local tc id ty, false
+    | Some _ -> type_error s (pp "identifier %s is already defined in the local context" id)
+  )
+  | _ -> failwith "todo: implement typecheck_stmt"
 
 
 (* struct type declarations ------------------------------------------------- *)
