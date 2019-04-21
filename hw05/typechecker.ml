@@ -341,6 +341,8 @@ let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.
   )
   | _ -> failwith "todo: implement typecheck_stmt"
 
+and typecheck_block (tc : Tctxt.t) (block : Ast.block) (to_ret:ret_ty) : Tctxt.t * bool =
+  List.fold_left (fun (tc, returns) stmt ->  typecheck_stmt tc stmt to_ret) (tc, false) block
 
 (* struct type declarations ------------------------------------------------- *)
 (* Here is an example of how to implement the TYP_TDECLOK rule, which is 
@@ -365,16 +367,13 @@ let typecheck_tdecl (tc : Tctxt.t) id fs  (l : 'a Ast.node) : unit =
     - typechecks the body of the function (passing in the expected return type
     - checks that the function actually returns
 *)
-let typecheck_block (tc : Tctxt.t) (b : Ast.block) (ret_ty:ret_ty) (l : 'a Ast.node) : unit =
-  let _, returns_pred = List.fold_left (fun (c, returns) stmt ->  typecheck_stmt c stmt ret_ty) (tc, false) b in
-  match returns_pred with 
-  | false -> type_error l "[typecheck_block]: func declaration body does not terminate with a return statement"
-  | true -> ()
-
 let typecheck_fdecl (tc : Tctxt.t) (f : Ast.fdecl) (l : 'a Ast.node) : unit =
   let {frtyp; fname; args; body} = f in
   let tc_w_params = List.fold_left (fun acc (ty, id) -> Tctxt.add_local acc id ty) tc args in
-  typecheck_block tc_w_params body frtyp l
+  let _, returns_pred = typecheck_block tc_w_params body frtyp in
+  match returns_pred with
+  | true -> ()
+  | false -> type_error l "[typecheck_fdecl]: last statement of the function body does not return" 
 
 
 (* creating the typchecking context ----------------------------------------- *)
