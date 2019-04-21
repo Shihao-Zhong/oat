@@ -328,8 +328,17 @@ let typecheck_tdecl (tc : Tctxt.t) id fs  (l : 'a Ast.node) : unit =
     - typechecks the body of the function (passing in the expected return type
     - checks that the function actually returns
 *)
+let typecheck_block (tc : Tctxt.t) (b : Ast.block) (ret_ty:ret_ty) (l : 'a Ast.node) : unit =
+  let _, returns_pred = List.fold_left (fun (c, returns) stmt ->  typecheck_stmt c stmt ret_ty) (tc, false) b in
+  match returns_pred with 
+  | false -> type_error l "func declaration body does not terminate with a return statement"
+  | true -> ()
+
 let typecheck_fdecl (tc : Tctxt.t) (f : Ast.fdecl) (l : 'a Ast.node) : unit =
-  failwith "todo: typecheck_fdecl"
+  let {frtyp; fname; args; body} = f in
+  let tc_w_params = List.fold_left (fun acc (ty, id) -> Tctxt.add_local acc id ty) tc args in
+  typecheck_block tc_w_params body frtyp l
+
 
 (* creating the typchecking context ----------------------------------------- *)
 
