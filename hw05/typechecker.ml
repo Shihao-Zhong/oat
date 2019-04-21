@@ -345,7 +345,22 @@ let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.
     let _, els_block_returns = typecheck_block tc els_block to_ret in
     match cond_ty with
     | TBool -> tc, if_block_returns && els_block_returns
-    | _ -> type_error cond "[typecheck_stmt][If]: condition is not a boolean expression"  
+    | _ -> type_error cond "[typecheck_stmt][If]: condition is not a boolean expression"
+  )
+  | Ret None -> (
+    match to_ret with
+    | RetVoid -> tc, true
+    | RetVal ty -> type_error s (pp "[typecheck_stmt][Ret None]: expected to return a value of %s type" @@  string_of_ty ty)
+  )
+  | Ret Some exp -> (
+    let exp_ty = typecheck_exp tc exp in
+    match to_ret with
+    | RetVoid -> type_error exp (pp "[typecheck_stmt][Ret Some]: returns a value of type %s, while the function expects to return void" @@  string_of_ty exp_ty)
+    | RetVal ty -> (
+      match subtype tc exp_ty ty with
+      | true -> tc, true
+      | false -> type_error exp (pp "[typecheck_stmt][Ret Some]: returns a value of type %s, while the function expects to return a %s" (string_of_ty exp_ty) (string_of_ty ty))
+    )
   )
   | _ -> failwith "todo: implement typecheck_stmt"
 
