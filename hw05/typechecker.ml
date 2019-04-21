@@ -310,6 +310,25 @@ let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.
     | None -> Tctxt.add_local tc id ty, false
     | Some _ -> type_error s (pp "identifier %s is already defined in the local context" id)
   )
+  | Assn (lhs, rhs) -> (
+    let lhs_ty = match lhs.elt with
+    | Id id -> (
+      match Tctxt.lookup_option id tc with
+      | Some ty -> (
+        match ty with
+        | TRef(RFun _) -> type_error lhs (pp "identifier %s is a function id" id)
+        | _ -> ty
+      )
+      | None -> type_error lhs (pp "identifier %s is undefined" id)
+    )
+    | _ -> typecheck_exp tc lhs
+    in
+    let rhs_ty = typecheck_exp tc rhs in
+    let subtype_pred = subtype tc rhs_ty lhs_ty in
+    match subtype_pred with
+    | true -> tc, false
+    | false -> type_error s "unexpected RHS expression type in assignment statement"
+  )
   | _ -> failwith "todo: implement typecheck_stmt"
 
 
