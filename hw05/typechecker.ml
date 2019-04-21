@@ -114,7 +114,7 @@ and typecheck_ref_ty  (l : 'a Ast.node) (tc : Tctxt.t) (t : Ast.rty) : unit =
   | RArray ty -> typecheck_ty l tc ty
   | RStruct id -> (
     match Tctxt.lookup_struct_option id tc with
-    | None -> type_error l (pp "undefined struct %s" id)
+    | None -> type_error l (pp "[typecheck_ref_ty]: undefined struct %s" id)
     | Some _ -> ()
   )
   | RFun(params, ret_ty) -> (
@@ -162,7 +162,7 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
   | CStr _ -> TRef(RString)
   | Id id -> (
     match (Tctxt.lookup_option id c) with
-    | None -> type_error e (pp "undefined Identifier %s" id)
+    | None -> type_error e (pp "[typecheck_exp][Id]: undefined Identifier %s" id)
     | Some ty -> ty
   )
   | CArr(ty, es) -> (
@@ -170,7 +170,7 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     let exp_tys = List.map (fun e -> typecheck_exp c e) es in
     let init_pred = List.fold_left (fun acc t -> acc && subtype c t ty) true exp_tys in
     match init_pred with
-    | false -> type_error e "unexpected array element type"
+    | false -> type_error e "[typecheck_exp][CArr]: unexpected array element type"
     | true -> TRef(RArray(ty))
   )
   | NewArr(ty, len, id, init) -> (
@@ -181,24 +181,24 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     let init_pred = subtype c init_exp_ty ty in
     match len_pred, id_pred, init_pred with
     | true, true, true -> TRef(RArray(ty))
-    | false, _, _ -> type_error e "expected a length of type Int"
-    | _, false, _ -> type_error e (pp "array init identifier [%s] is defined in the local context" id)
-    | _, _, false -> type_error e (pp "expected an init expression of type %s" @@ string_of_ty ty)
+    | false, _, _ -> type_error e "[typecheck_exp][NewArr]: expected a length of type Int"
+    | _, false, _ -> type_error e (pp "[typecheck_exp][NewArr]: array init identifier [%s] is defined in the local context" id)
+    | _, _, false -> type_error e (pp "[typecheck_exp][NewArr]: expected an init expression of type %s" @@ string_of_ty ty)
   )
   | Index(arr, ind) -> (
     let ind_ty = typecheck_exp c ind in
     let arr_ty = typecheck_exp c arr in
     match arr_ty, ind_ty with
     | TRef(RArray(ty)), TInt -> ty
-    | TRef(RArray(_)), ty -> type_error e (pp "expected an index of type Int but if found a %s" @@ string_of_ty ty)
-    | ty, TInt -> type_error e (pp "expected an expression of type TRef(TArray(t)) but it found a %s" @@ string_of_ty ty)
-    | _, _ -> type_error e "both the expression and index have incorrect types"
+    | TRef(RArray(_)), ty -> type_error e (pp "[typecheck_exp][Index]: expected an index of type Int but if found a %s" @@ string_of_ty ty)
+    | ty, TInt -> type_error e (pp "[typecheck_exp][Index]: expected an expression of type TRef(TArray(t)) but it found a %s" @@ string_of_ty ty)
+    | _, _ -> type_error e "[typecheck_exp][Index]: both the expression and index have incorrect types"
   )
   | Length(arr) -> (
     let arr_ty = typecheck_exp c arr in
     match arr_ty with
     | TRef(RArray(_))-> TInt
-    | ty -> type_error e (pp "expected an expression of type TRef(RArray(ty)) but it found a %s" @@ string_of_ty ty)
+    | ty -> type_error e (pp "[typecheck_exp][Length]: expected an expression of type TRef(RArray(ty)) but it found a %s" @@ string_of_ty ty)
   )
   | CStruct(s_id, fields) -> (
     let fields_subtype_pred = List.fold_left(fun acc (f_id, f_init_exp) -> acc &&
@@ -213,8 +213,8 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     ) true expected_struct_fields in
     match fields_subtype_pred, all_fields_present_pred with
     | true, true -> TRef(RStruct s_id)
-    | false, _ -> type_error e "expression does not have the correct field type"
-    | _, false -> type_error e "you need to initialize all the struct fields"
+    | false, _ -> type_error e "[typecheck_exp][CStruct]: expression does not have the correct field type"
+    | _, false -> type_error e "[typecheck_exp][CStruct]: you need to initialize all the struct fields"
   )
   | Proj(s, f_id) -> (
     let s_ty = typecheck_exp c s in
@@ -222,15 +222,15 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     | TRef(RStruct s_id) -> (
       let f_ty = Tctxt.lookup_field_option s_id f_id c in
       match f_ty with
-      | None -> type_error e (pp "undefined field %s" f_id)
+      | None -> type_error e (pp "[typecheck_exp][Proj]: undefined field %s" f_id)
       | Some ty -> ty
     )
-    | ty -> type_error e (pp "expected an expression of type struct but it received a %s" @@ string_of_ty ty)
+    | ty -> type_error e (pp "[typecheck_exp][Proj]: expected an expression of type struct but it received a %s" @@ string_of_ty ty)
   )
   | Call(fun_id, args) -> (
     let params, ret_ty = match typecheck_exp c fun_id with
     | TRef(RFun(params, ret_ty)) -> params, ret_ty
-    | ty -> type_error e (pp "identifier of type %s is not a function" @@ string_of_ty ty) in
+    | ty -> type_error e (pp "[typecheck_exp][Call]: identifier of type %s is not a function" @@ string_of_ty ty) in
 
     let args_ty = List.map(fun arg -> typecheck_exp c arg) args in
     let args_ty_pred = List.fold_left2(fun acc param arg -> acc && subtype c arg param) true params args_ty in
@@ -238,9 +238,9 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
 
     match args_ty_pred, arg_len_pred, ret_ty with
     | true, true, RetVal(ret_ty)  -> ret_ty
-    | false, _, _ -> type_error e "unexpected argument types in function call"
-    | _, false, _ -> type_error e "unexpected number of arguments"
-    | _, _, RetVoid -> type_error e "todo: how to handle function returning Void -_-"
+    | false, _, _ -> type_error e "[typecheck_exp][Call]: unexpected argument types in function call"
+    | _, false, _ -> type_error e "[typecheck_exp][Call]: unexpected number of arguments"
+    | _, _, RetVoid -> type_error e "[typecheck_exp][Call]: TODO how to handle function returning Void -_-"
   )
   | Bop (Neq, l, r)
   | Bop (Eq, l, r) -> (
@@ -248,8 +248,8 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     let r_ty = typecheck_exp c r in
     match subtype c l_ty r_ty, subtype c r_ty l_ty with
     | true, true -> TBool
-    | false, _ -> type_error e (pp "a left operand of type %s is not a subtype of a right operand of type %s" (string_of_ty l_ty) (string_of_ty r_ty))
-    | _, false -> type_error e (pp "a right operand of type %s is not a subtype of a left operand of type %s" (string_of_ty r_ty) (string_of_ty l_ty))
+    | false, _ -> type_error e (pp "[typecheck_exp][Bop]: a left operand of type %s is not a subtype of a right operand of type %s" (string_of_ty l_ty) (string_of_ty r_ty))
+    | _, false -> type_error e (pp "[typecheck_exp][Bop]: a right operand of type %s is not a subtype of a left operand of type %s" (string_of_ty r_ty) (string_of_ty l_ty))
   )
   | Bop (biop, l, r) -> (
     let l_ty, r_ty, ret_ty = typ_of_binop biop in
@@ -257,15 +257,15 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     let r_pred = typecheck_exp c r = r_ty in
     match l_pred, r_pred with
     | true, true -> ret_ty
-    | false, _ -> type_error e (pp "expected left operand to have type %s" @@ string_of_ty l_ty)
-    | _, false -> type_error e (pp "expected right operand to have type %s" @@ string_of_ty l_ty)
+    | false, _ -> type_error e (pp "[typecheck_exp][Bop]: expected left operand to have type %s" @@ string_of_ty l_ty)
+    | _, false -> type_error e (pp "[typecheck_exp][Bop]: expected right operand to have type %s" @@ string_of_ty l_ty)
   ) 
   | Uop (uop, exp) -> (
     let exp_ty, ret_ty = typ_of_unop uop in
     let exp_pred = typecheck_exp c exp = exp_ty in
     match exp_pred with
     | true -> ret_ty
-    | false -> type_error e (pp "expected a operand of type %s" @@ string_of_ty exp_ty)
+    | false -> type_error e (pp "[typecheck_exp][Uop]: expected a operand of type %s" @@ string_of_ty exp_ty)
   )
 
 (* statements --------------------------------------------------------------- *)
@@ -308,7 +308,7 @@ let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.
     let ty = typecheck_exp tc exp in
     match id_pred with
     | None -> Tctxt.add_local tc id ty, false
-    | Some _ -> type_error s (pp "identifier %s is already defined in the local context" id)
+    | Some _ -> type_error s (pp "[typecheck_stmt][Decl]: identifier %s is already defined in the local context" id)
   )
   | Assn (lhs, rhs) -> (
     let lhs_ty = match lhs.elt with
@@ -316,18 +316,28 @@ let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.
       match Tctxt.lookup_option id tc with
       | Some ty -> (
         match ty with
-        | TRef(RFun _) -> type_error lhs (pp "identifier %s is a function id" id)
+        | TRef(RFun _) -> type_error lhs (pp "[typecheck_stmt][Assn]: identifier %s is a function id" id)
         | _ -> ty
       )
-      | None -> type_error lhs (pp "identifier %s is undefined" id)
+      | None -> type_error lhs (pp "[typecheck_stmt][Assn]: identifier %s is undefined" id)
     )
-    | _ -> typecheck_exp tc lhs
-    in
+    | _ -> typecheck_exp tc lhs in
     let rhs_ty = typecheck_exp tc rhs in
     let subtype_pred = subtype tc rhs_ty lhs_ty in
     match subtype_pred with
     | true -> tc, false
-    | false -> type_error s "unexpected RHS expression type in assignment statement"
+    | false -> type_error s "[typecheck_stmt][Assn]: unexpected RHS expression type in assignment statement"
+  )
+  | SCall(f, args) -> (
+    let param_tys = match typecheck_exp tc f with
+    | TRef(RFun(param_tys, RetVoid)) -> param_tys
+    | _ -> type_error f "[typecheck_stmt][SCall]: unexpected function type"
+    in
+    let arg_tys = List.map (fun arg -> typecheck_exp tc arg) args in
+    let sub_type_pred = List.fold_left2 (fun acc p_ty a_ty -> acc && subtype tc a_ty p_ty) true param_tys arg_tys in
+    match sub_type_pred with
+    | true -> tc, false
+    | false -> type_error f "[typecheck_stmt][SCall]: unexpected function type"
   )
   | _ -> failwith "todo: implement typecheck_stmt"
 
@@ -345,7 +355,7 @@ let rec check_dups fs =
 
 let typecheck_tdecl (tc : Tctxt.t) id fs  (l : 'a Ast.node) : unit =
   if check_dups fs
-  then type_error l ("Repeated fields in " ^ id) 
+  then type_error l ("[typecheck_tdecl]: Repeated fields in " ^ id) 
   else List.iter (fun f -> typecheck_ty l tc f.ftyp) fs
 
 (* function declarations ---------------------------------------------------- *)
@@ -358,7 +368,7 @@ let typecheck_tdecl (tc : Tctxt.t) id fs  (l : 'a Ast.node) : unit =
 let typecheck_block (tc : Tctxt.t) (b : Ast.block) (ret_ty:ret_ty) (l : 'a Ast.node) : unit =
   let _, returns_pred = List.fold_left (fun (c, returns) stmt ->  typecheck_stmt c stmt ret_ty) (tc, false) b in
   match returns_pred with 
-  | false -> type_error l "func declaration body does not terminate with a return statement"
+  | false -> type_error l "[typecheck_block]: func declaration body does not terminate with a return statement"
   | true -> ()
 
 let typecheck_fdecl (tc : Tctxt.t) (f : Ast.fdecl) (l : 'a Ast.node) : unit =
@@ -410,9 +420,9 @@ let rec typecheck_gexp (tc : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     let field_pred = List.fold_left2 (fun acc exp_ty ty  -> acc && subtype tc ty exp_ty) true field_tys init_tys in
     match field_pred with
     | true -> TRef (RStruct sid)
-    | false -> type_error e "invalid field initializer"
+    | false -> type_error e "[typecheck_gexp]: invalid field initializer"
   )
-  | _ -> type_error e "unexpected global initializer"
+  | _ -> type_error e "[typecheck_gexp]: unexpected global initializer"
 
 let create_struct_ctxt (p:Ast.prog) : Tctxt.t =
   List.fold_left (fun c decl ->
@@ -421,7 +431,7 @@ let create_struct_ctxt (p:Ast.prog) : Tctxt.t =
       let id, fields = tdecl.elt in
       let field_pred = not @@ has_duplicates fields (fun f -> f.fieldName) in
       match field_pred with
-      | false -> type_error tdecl "duplicate fields in struct definition"
+      | false -> type_error tdecl "[create_struct_ctxt]: duplicate fields in struct definition"
       | true -> Tctxt.add_struct c id fields
     )
     | _ -> c
@@ -436,7 +446,7 @@ let create_function_ctxt (tc:Tctxt.t) (p:Ast.prog) : Tctxt.t =
       | None -> 
         let arg_tys = List.map (fun (ty, _) -> ty) args in
         Tctxt.add_global c fname (TRef(RFun(arg_tys, frtyp)))
-      | Some ty -> type_error fdecl (pp "identifier %s was previously was defined as type %s in the current scope" fname (string_of_ty ty))
+      | Some ty -> type_error fdecl (pp "[create_function_ctxt]: identifier %s was previously was defined as type %s in the current scope" fname (string_of_ty ty))
     ) 
     | _ -> c
   ) tc p
