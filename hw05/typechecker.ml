@@ -347,6 +347,29 @@ let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.
     | TBool -> tc, if_block_returns && els_block_returns
     | _ -> type_error cond "[typecheck_stmt][If]: condition is not a boolean expression"
   )
+  | Cast(rty, id, exp, if_block, els_block) -> (
+    let unique_id_pred = Tctxt.lookup_local_option id tc in
+    let possibly_null_exp_ty = typecheck_exp tc exp in
+    let exp_ty = match possibly_null_exp_ty with
+    | TNullRef rty -> TRef rty
+    | _ -> type_error exp "[typecheck_stmt][Cast]: unexpected expression type in null check"
+    in
+    let id_ty = match rty with
+    | RString -> TRef RString
+    | RStruct sid -> TRef(RStruct sid)
+    | RArray ty -> TRef(RArray ty)
+    | RFun(tys, ret_ty) -> TRef(RFun(tys, ret_ty))
+    in
+    let subtype_pred = subtype tc exp_ty id_ty in
+    let if_block_tc = Tctxt.add_local tc id id_ty in
+    let _, if_block_returns = typecheck_block if_block_tc if_block to_ret in
+    let _, els_block_returns = typecheck_block tc els_block to_ret in
+
+    match unique_id_pred, subtype_pred with
+    | None, true ->  tc, if_block_returns && els_block_returns
+    | Some _, _-> type_error s (pp "[typecheck_stmt][Cast]: identifier %s already defined in local context" id)
+    | _, false -> type_error exp "[typecheck_stmt][Cast]: unexpected expression type in null check"
+  )
   | Ret None -> (
     match to_ret with
     | RetVoid -> tc, true
