@@ -394,6 +394,12 @@ let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.
       | false -> type_error exp (pp "[typecheck_stmt][Ret Some]: returns a value of type %s, while the function expects to return a %s" (string_of_ty exp_ty) (string_of_ty ty))
     )
   )
+  | While(cond, _) ->(
+    let cond_ty = typecheck_exp tc cond in
+    match cond_ty with
+    | TBool -> tc, false
+    | _ -> type_error cond "[typecheck_stmt][While]: condition is not a boolean expression"
+  )
   | _ -> failwith "todo: implement typecheck_stmt"
 
 and typecheck_block (tc : Tctxt.t) (block : Ast.block) (to_ret:ret_ty) : Tctxt.t * bool =
