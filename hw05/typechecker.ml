@@ -306,7 +306,7 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
 *)
 let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.t * bool =
   match s.elt with
-  | Decl vdecl -> typecheck_decl tc s vdecl
+  | Decl vdecl -> typecheck_decl tc s vdecl, false
   | Assn (lhs, rhs) -> (
     let lhs_ty = match lhs.elt with
     | Id id -> (
@@ -395,13 +395,13 @@ let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.
     | _ -> type_error cond "[typecheck_stmt][While]: condition is not a boolean expression"
   )
   | For(decls, cond_opt, stmt_opt, for_block) -> (
-    let tc_with_decls = List.fold_left (fun c (id, exp) -> Tctxt.add_local c id (typecheck_exp c exp)) tc decls in
+    let tc_with_decls = List.fold_left (fun c decl -> typecheck_decl c s decl ) tc decls in
     let cond_ty_pred = match cond_opt with
     | Some exp -> (
       match typecheck_exp tc_with_decls exp with
       | TBool -> true
       | _ -> false
-    )
+    ) 
     | None -> true in
     let _, stmt_returns = match stmt_opt with 
     | Some stmt -> typecheck_stmt tc_with_decls stmt to_ret (* todo: check to_ret *)
@@ -418,12 +418,12 @@ let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.
 and typecheck_block (tc : Tctxt.t) (block : Ast.block) (to_ret:ret_ty) : Tctxt.t * bool =
   List.fold_left (fun (tc, returns) stmt ->  typecheck_stmt tc stmt to_ret) (tc, false) block
 
-and typecheck_decl (tc : Tctxt.t) (s : Ast.stmt node) (vdecl : Ast.vdecl) : Tctxt.t * bool =  
+and typecheck_decl (tc : Tctxt.t) (s : Ast.stmt node) (vdecl : Ast.vdecl) : Tctxt.t =  
   let id, exp = vdecl in
   let id_pred = Tctxt.lookup_local_option id tc in
   let ty = typecheck_exp tc exp in
   match id_pred with
-  | None -> Tctxt.add_local tc id ty, false
+  | None -> Tctxt.add_local tc id ty
   | Some _ -> type_error s (pp "[typecheck_stmt][Decl]: identifier %s is already defined in the local context" id)
 
 (* struct type declarations ------------------------------------------------- *)
