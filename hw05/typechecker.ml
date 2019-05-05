@@ -216,6 +216,7 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     | false, _ -> type_error e "[typecheck_exp][CStruct]: expression does not have the correct field type"
     | _, false -> type_error e "[typecheck_exp][CStruct]: you need to initialize all the struct fields"
   )
+  (* todo: check no. of initializer fields = no. of struct fields *)
   | Proj(s, f_id) -> (
     let s_ty = typecheck_exp c s in
     match s_ty with
@@ -233,14 +234,16 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     | ty -> type_error e (pp "[typecheck_exp][Call]: identifier of type %s is not a function" @@ string_of_ty ty) in
 
     let args_ty = List.map(fun arg -> typecheck_exp c arg) args in
-    let args_ty_pred = List.fold_left2(fun acc param arg -> acc && subtype c arg param) true params args_ty in
     let arg_len_pred = List.length params = List.length args in
-
-    match args_ty_pred, arg_len_pred, ret_ty with
-    | true, true, RetVal(ret_ty)  -> ret_ty
-    | false, _, _ -> type_error e "[typecheck_exp][Call]: unexpected argument types in function call"
-    | _, false, _ -> type_error e "[typecheck_exp][Call]: unexpected number of arguments"
-    | _, _, RetVoid -> type_error e "[typecheck_exp][Call]: TODO how to handle function returning Void -_-"
+    match arg_len_pred with
+    | true -> (
+      let args_ty_pred = List.fold_left2(fun acc param arg -> acc && subtype c arg param) true params args_ty in
+      match args_ty_pred, ret_ty with
+      | true, RetVal(ret_ty)  -> ret_ty
+      | false, _ -> type_error e "[typecheck_exp][Call]: unexpected argument types in function call"
+      | _, RetVoid -> type_error e "[typecheck_exp][Call]: TODO how to handle function returning Void -_-"
+    )
+    | false -> type_error e "[typecheck_exp][Call]: unexpected number of arguments"
   )
   | Bop (Neq, l, r)
   | Bop (Eq, l, r) -> (
@@ -327,6 +330,7 @@ let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.
     match subtype_pred with
     | true -> tc, false
     | false -> type_error s "[typecheck_stmt][Assn]: unexpected RHS expression type in assignment statement"
+    (*todo: handle array index and struct projection as LHS *)
   )
   | SCall(f, args) -> (
     let param_tys = match typecheck_exp tc f with
@@ -334,10 +338,15 @@ let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.
     | _ -> type_error f "[typecheck_stmt][SCall]: unexpected function type"
     in
     let arg_tys = List.map (fun arg -> typecheck_exp tc arg) args in
-    let sub_type_pred = List.fold_left2 (fun acc p_ty a_ty -> acc && subtype tc a_ty p_ty) true param_tys arg_tys in
-    match sub_type_pred with
-    | true -> tc, false
-    | false -> type_error f "[typecheck_stmt][SCall]: unexpected function type"
+    let arg_list_length_pred = List.length arg_tys = List.length param_tys in
+    match arg_list_length_pred with
+    | true -> (
+      let sub_type_pred = List.fold_left2 (fun acc p_ty a_ty -> acc && subtype tc a_ty p_ty) true param_tys arg_tys in
+      match sub_type_pred with
+      | true -> tc, false
+      | false -> type_error f "[typecheck_stmt][SCall]: unexpected function type"
+    )
+    | false -> type_error f "[typecheck_stmt][SCall]: unexpected number of arguments"
   )
   | If(cond, if_block, els_block) -> (
     let cond_ty = typecheck_exp tc cond in
