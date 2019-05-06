@@ -211,12 +211,13 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
     let all_fields_present_pred = List.fold_left(
       fun acc f -> acc && List.exists (fun (id, _) -> id = f.fieldName) fields
     ) true expected_struct_fields in
-    match fields_subtype_pred, all_fields_present_pred with
-    | true, true -> TRef(RStruct s_id)
-    | false, _ -> type_error e "[typecheck_exp][CStruct]: expression does not have the correct field type"
-    | _, false -> type_error e "[typecheck_exp][CStruct]: you need to initialize all the struct fields"
+    let f_init_list_length_pred = List.length expected_struct_fields = List.length fields in
+    match fields_subtype_pred, all_fields_present_pred, f_init_list_length_pred with
+    | true, true, true -> TRef(RStruct s_id)
+    | false, _, _ -> type_error e "[typecheck_exp][CStruct]: expression does not have the correct field type"
+    | _, false, _ -> type_error e "[typecheck_exp][CStruct]: you need to initialize all the struct fields"
+    | _, _, false -> type_error e "[typecheck_exp][CStruct]: duplicate fields in struct initialization expression"
   )
-  (* todo: check no. of initializer fields = no. of struct fields *)
   | Proj(s, f_id) -> (
     let s_ty = typecheck_exp c s in
     match s_ty with
