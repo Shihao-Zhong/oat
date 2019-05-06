@@ -514,7 +514,11 @@ let create_struct_ctxt (p:Ast.prog) : Tctxt.t =
       let field_pred = not @@ has_duplicates fields (fun f -> f.fieldName) in
       match field_pred with
       | false -> type_error tdecl "[create_struct_ctxt]: duplicate fields in struct definition"
-      | true -> Tctxt.add_struct c id fields
+      | true -> (
+        match Tctxt.lookup_struct_option id c with
+        | None -> Tctxt.add_struct c id fields
+        | Some _ -> type_error tdecl (pp "[create_struct_ctxt]: struct identifier %s was previously was defined in the current scope" id)
+      )
     )
     | _ -> c
   ) Tctxt.empty p
@@ -531,7 +535,7 @@ let create_function_ctxt (tc:Tctxt.t) (p:Ast.prog) : Tctxt.t =
       | None -> 
         let arg_tys = List.map (fun (ty, _) -> ty) args in
         Tctxt.add_global c fname (TRef(RFun(arg_tys, frtyp)))
-      | Some ty -> type_error fdecl (pp "[create_function_ctxt]: identifier %s was previously was defined as type %s in the current scope" fname (string_of_ty ty))
+      | Some ty -> type_error fdecl (pp "[create_function_ctxt]: identifier %s was previously defined as type %s in the current scope" fname (string_of_ty ty))
     ) 
     | _ -> c
   ) tc p
@@ -541,7 +545,9 @@ let create_global_ctxt (tc:Tctxt.t) (p:Ast.prog) : Tctxt.t =
     match decl with
     | Gvdecl(gdecl) -> (
       let {name; init} = gdecl.elt in
-      Tctxt.add_global c name (typecheck_gexp tc init)
+      match Tctxt.lookup_global_option name c with
+      | None -> Tctxt.add_global c name (typecheck_gexp tc init)
+      | Some ty -> type_error gdecl (pp "[create_global_ctxt]: identifier %s was previously defined as type %s in the current scope" name (string_of_ty ty))
     ) 
     | _ -> c
   ) tc p
