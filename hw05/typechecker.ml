@@ -313,8 +313,8 @@ let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.
     | Id id -> (
       match Tctxt.lookup_option id tc with
       | Some ty -> (
-        match ty with
-        | TRef(RFun _) -> type_error lhs (pp "[typecheck_stmt][Assn]: identifier %s is a function id" id)
+        match ty, Tctxt.lookup_global_option id tc with
+        | TRef(RFun _), Some ty -> type_error lhs (pp "[typecheck_stmt][Assn]: identifier %s is a function id" id)
         | _ -> ty
       )
       | None -> type_error lhs (pp "[typecheck_stmt][Assn]: identifier %s is undefined" id)
