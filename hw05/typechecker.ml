@@ -242,7 +242,7 @@ let rec typecheck_exp (c : Tctxt.t) (e : Ast.exp node) : Ast.ty =
       match args_ty_pred, ret_ty with
       | true, RetVal(ret_ty)  -> ret_ty
       | false, _ -> type_error e "[typecheck_exp][Call]: unexpected argument types in function call"
-      | _, RetVoid -> type_error e "[typecheck_exp][Call]: TODO how to handle function returning Void -_-"
+      | _, RetVoid -> type_error e "[typecheck_exp][Call]: unexpected function type"
     )
     | false -> type_error e "[typecheck_exp][Call]: unexpected number of arguments"
   )
@@ -311,13 +311,10 @@ let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.
   | Assn (lhs, rhs) -> (
     let lhs_ty = match lhs.elt with
     | Id id -> (
-      match Tctxt.lookup_option id tc with
-      | Some ty -> (
-        match ty, Tctxt.lookup_global_option id tc with
-        | TRef(RFun _), Some ty -> type_error lhs (pp "[typecheck_stmt][Assn]: identifier %s is a function id" id)
-        | _ -> ty
-      )
-      | None -> type_error lhs (pp "[typecheck_stmt][Assn]: identifier %s is undefined" id)
+      let id_ty = typecheck_exp tc lhs in
+      match id_ty, Tctxt.lookup_global_option id tc with
+      | TRef(RFun _), Some ty -> type_error lhs (pp "[typecheck_stmt][Assn]: identifier %s is a function id" id)
+      | _ -> id_ty
     )
     | _ -> typecheck_exp tc lhs in
     let rhs_ty = typecheck_exp tc rhs in
@@ -325,7 +322,6 @@ let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.
     match subtype_pred with
     | true -> tc, false
     | false -> type_error s "[typecheck_stmt][Assn]: unexpected RHS expression type in assignment statement"
-    (*todo: handle array index and struct projection as LHS *)
   )
   | SCall(f, args) -> (
     let param_tys = match typecheck_exp tc f with
@@ -415,7 +411,6 @@ let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.
     | false, _ -> type_error s "[typecheck_stmt][For]: condition is not a boolean expression"
     | _, true -> type_error s "[typecheck_stmt][For]: unexpected return behaviour of loop statement"
   )
-  | _ -> failwith "todo: implement typecheck_stmt"
 
 and typecheck_block (tc : Tctxt.t) (block : Ast.block) (to_ret:ret_ty) : Tctxt.t * bool =
   List.fold_left (fun (tc, returns) stmt ->  typecheck_stmt tc stmt to_ret) (tc, false) block
