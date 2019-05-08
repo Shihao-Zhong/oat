@@ -413,7 +413,15 @@ let rec typecheck_stmt (tc : Tctxt.t) (s:Ast.stmt node) (to_ret:ret_ty) : Tctxt.
   )
 
 and typecheck_block (tc : Tctxt.t) (block : Ast.block) (to_ret:ret_ty) : Tctxt.t * bool =
-  List.fold_left (fun (tc, returns) stmt ->  typecheck_stmt tc stmt to_ret) (tc, false) block
+  match block with
+  | [] -> tc, false
+  | [s] -> typecheck_stmt tc s to_ret
+  | s :: stmts -> (
+    let new_c, returns_pred = typecheck_stmt tc s to_ret in
+    match returns_pred with
+    | false -> typecheck_block new_c stmts to_ret
+    | true -> type_error s "[typecheck_block]: unexpected return behaviour of statement"
+  )
 
 and typecheck_decl (tc : Tctxt.t) (s : Ast.stmt node) (vdecl : Ast.vdecl) : Tctxt.t =  
   let id, exp = vdecl in
