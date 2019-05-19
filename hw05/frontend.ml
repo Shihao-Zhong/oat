@@ -278,7 +278,15 @@ let rec cmp_exp (tc : TypeCtxt.t) (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.ope
        of the array struct representation.
   *)
   | Ast.Length e ->
-    failwith "todo:implement Ast.Length case"
+    let arr_ty, arr_op, arr_code = cmp_exp tc c e in
+    let arr_sub_ty = match arr_ty with
+      | Ptr (Struct [_; Array (_,t)]) -> t
+      | _ -> failwith "length: nonarray passed to length operator" in
+    let ptr_id, ans_id = gensym "ptr", "length" in
+    I64, (Id ans_id),
+    arr_code >@ lift
+      [ ptr_id, Gep(arr_ty, arr_op, [Const 0L; Const 0L])
+      ; ans_id, Load(Ptr arr_sub_ty, Id ptr_id)]
 
   | Ast.Index (e, i) ->
     let ans_ty, ptr_op, code = cmp_exp_lhs tc c exp in
