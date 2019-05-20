@@ -323,7 +323,24 @@ let rec cmp_exp (tc : TypeCtxt.t) (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.ope
   | Ast.NewArr (elt_ty, e1, id, e2) ->    
     let _, size_op, size_code = cmp_exp tc c e1 in
     let arr_ty, arr_op, alloc_code = oat_alloc_array tc elt_ty size_op in
-    arr_ty, arr_op, size_code >@ alloc_code
+    let arr_id, init_id, ans_id =
+      gensym "NewArr_arr_ptr", gensym "NewArr_counter" , gensym "NewArr_ans" in
+    let c' = Ctxt.add c arr_id (Ptr arr_ty, Id arr_id) in
+    let arr_id_code = []
+      >:: I(arr_id, Alloca arr_ty)
+      >:: I(gensym "", Store (arr_ty, arr_op, Id arr_id)) in
+    let init, guard, after, body =
+      (init_id, no_loc @@ CInt 0L),
+      no_loc @@ Bop(Lt, no_loc @@ Id init_id, e1),
+      no_loc @@ Assn(
+        no_loc @@ Id init_id,
+        no_loc @@ Bop(Add, no_loc @@ Id init_id, no_loc @@ CInt 1L)),
+      no_loc @@ Assn(
+        no_loc @@ Index(no_loc @@ Id arr_id, no_loc @@ Id init_id), e2) in
+    let for_stmt = no_loc @@ For([init], Some guard, Some after, [body]) in
+    let _, new_arr_code = cmp_stmt tc c' Void for_stmt in
+    arr_ty, Id ans_id, size_code >@ alloc_code >@ arr_id_code >@ new_arr_code
+      >:: I(ans_id, Load(Ptr arr_ty, Id arr_id))
 
    (* STRUCT TASK: complete this code that compiles struct expressions.
       For each field component of the struct
