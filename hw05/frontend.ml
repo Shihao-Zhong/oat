@@ -613,8 +613,15 @@ let rec cmp_gexp c (tc : TypeCtxt.t) (e:Ast.exp node) : Ll.gdecl * (Ll.gid * Ll.
 
   (* STRUCT TASK: Complete this code that generates the global initializers for a struct value. *)  
   | CStruct (id, cs) ->
-    failwith "todo: Cstruct case of cmp_gexp"
-
+    let cs = List.sort (fun (fa, _) (fb, _) -> (TypeCtxt.index_of_field id fa tc) - (TypeCtxt.index_of_field id fb tc)) cs in
+    let elts, gs = List.fold_right (fun (id, cst) (elts, gs) ->
+      let gd, gs' = cmp_gexp c tc cst in gd::elts, gs' @ gs
+    ) cs ([], [])
+    in
+    let gid = gensym "global_struct" in
+    let struct_t = Struct (List.map (fun (ty, _) -> ty) elts) in
+    let struct_i = GStruct elts in
+    (Ptr struct_t, GGid gid), (gid, (struct_t, struct_i))::gs
   | _ -> failwith "bad global initializer"
 
 (* Oat internals function context ------------------------------------------- *)
