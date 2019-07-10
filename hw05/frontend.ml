@@ -389,10 +389,13 @@ and cmp_exp_lhs (tc : TypeCtxt.t) (c:Ctxt.t) (e:exp node) : Ll.ty * Ll.operand *
 
      You will find the TypeCtxt.lookup_field_name function helpfule.
   *)
-  | Ast.Proj (e, i) ->
-    failwith "todo: Ast.Proj case of cmp_exp_lhs"
-
-
+  | Ast.Proj (s_exp, f_id) ->
+    let struct_ty, struct_op, struct_code = cmp_exp tc c s_exp in
+    let f_ty, f_ind = TypeCtxt.lookup_field_name f_id tc in
+    let ret_ty = Ptr (cmp_ty tc f_ty) in
+    let ptr_id = gensym "field_index_id" in
+    let proj_code = I (ptr_id, Gep(struct_ty, struct_op, [Const 0L; Const f_ind])) in
+    ret_ty, Id (ptr_id), struct_code >:: proj_code
   (* ARRAY TASK: Modify this index code to call 'oat_assert_array_length' before doing the 
      GEP calculation. This should be very straightforward, except that you'll need to use a Bitcast.
      You might want to take a look at the implementation of 'oat_assert_array_length'
