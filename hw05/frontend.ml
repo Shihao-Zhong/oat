@@ -369,7 +369,7 @@ let rec cmp_exp (tc : TypeCtxt.t) (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.ope
 			let store_exp_code = I (store_ins_id, Gep(struct_ty, struct_op, [Const 0L; i64_op_of_int f_ind])) in
 			store_exp_code :: f_code, exp_code @ stream
 		) ([], []) l  in
-		struct_ty, struct_op, cmp_exp_code >@ store_exp_code
+		struct_ty, struct_op, struct_code >@ cmp_exp_code >@ store_exp_code
   | Ast.Proj (e, id) ->
     let ans_ty, ptr_op, code = cmp_exp_lhs tc c exp in
     let ans_id = gensym "proj" in
@@ -392,10 +392,10 @@ and cmp_exp_lhs (tc : TypeCtxt.t) (c:Ctxt.t) (e:exp node) : Ll.ty * Ll.operand *
   | Ast.Proj (s_exp, f_id) ->
     let struct_ty, struct_op, struct_code = cmp_exp tc c s_exp in
     let f_ty, f_ind = TypeCtxt.lookup_field_name f_id tc in
-    let ret_ty = Ptr (cmp_ty tc f_ty) in
+    let ret_ty = cmp_ty tc f_ty in
     let ptr_id = gensym "field_index_id" in
     let proj_code = I (ptr_id, Gep(struct_ty, struct_op, [Const 0L; Const f_ind])) in
-    ret_ty, Id (ptr_id), struct_code >:: proj_code
+    ret_ty, Id (ptr_id), struct_code >@ [proj_code]
   (* ARRAY TASK: Modify this index code to call 'oat_assert_array_length' before doing the 
      GEP calculation. This should be very straightforward, except that you'll need to use a Bitcast.
      You might want to take a look at the implementation of 'oat_assert_array_length'
