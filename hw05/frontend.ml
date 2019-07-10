@@ -361,8 +361,15 @@ let rec cmp_exp (tc : TypeCtxt.t) (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.ope
        - store the resulting value into the structure
    *)
   | Ast.CStruct (id, l) ->
-    failwith "TODO: Ast.CStruct"
-
+    let struct_ty, struct_op, struct_code = oat_alloc_struct tc id in
+    let store_exp_code, cmp_exp_code = List.fold_left (fun (f_code, stream) (f_id, f_exp) -> 
+      let exp_ty, exp_op, exp_code = cmp_exp tc c f_exp in
+      let f_ind = TypeCtxt.index_of_field id f_id tc in
+      let store_ins_id = gensym "store_field_id" in
+			let store_exp_code = I (store_ins_id, Gep(struct_ty, struct_op, [Const 0L; i64_op_of_int f_ind])) in
+			store_exp_code :: f_code, exp_code @ stream
+		) ([], []) l  in
+		struct_ty, struct_op, cmp_exp_code >@ store_exp_code
   | Ast.Proj (e, id) ->
     let ans_ty, ptr_op, code = cmp_exp_lhs tc c exp in
     let ans_id = gensym "proj" in
