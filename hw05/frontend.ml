@@ -636,7 +636,7 @@ let rec cmp_gexp c (tc : TypeCtxt.t) (e:Ast.exp node) : Ll.gdecl * (Ll.gid * Ll.
     ) cs ([], [])
     in
     let gid = gensym "global_struct" in
-    let struct_t = Struct (List.map (fun (ty, _) -> ty) elts) in
+    let struct_t = Namedt id in
     let struct_i = GStruct elts in
     (Ptr struct_t, GGid gid), (gid, (struct_t, struct_i))::gs
   | _ -> failwith "bad global initializer"
