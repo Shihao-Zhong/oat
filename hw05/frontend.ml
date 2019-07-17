@@ -365,10 +365,13 @@ let rec cmp_exp (tc : TypeCtxt.t) (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.ope
     let store_exp_code, cmp_exp_code = List.fold_left (fun (f_code, stream) (f_id, f_exp) -> 
       let exp_ty, exp_op, exp_code = cmp_exp tc c f_exp in
       let f_ind = TypeCtxt.index_of_field id f_id tc in
-      let field_ptr_id = gensym "get_field_ptr_id" in
-			let field_ptr_code = I (field_ptr_id, Gep(struct_ty, struct_op, [Const 0L; i64_op_of_int f_ind])) in
-      let store_exp_code = I ("", Store (exp_ty, exp_op, Id field_ptr_id)) in
-			[store_exp_code; field_ptr_code] @ f_code, exp_code @ stream
+      let field_ptr_id, field_value_id = gensym "get_field_ptr_id", gensym "get_field_value_id" in
+      let field_ptr_code = I (field_ptr_id, Gep(struct_ty, struct_op, [Const 0L; i64_op_of_int f_ind])) in
+      let f_ty, _ = TypeCtxt.lookup_field_name f_id tc in
+      let f_ty = cmp_ty tc f_ty in
+      let field_value_cast_code = I ( field_value_id, Bitcast(exp_ty, exp_op, f_ty)) in
+      let store_exp_code = I ("", Store (f_ty, Id field_value_id, Id field_ptr_id)) in
+			[store_exp_code; field_value_cast_code; field_ptr_code] @ f_code, exp_code @ stream
 		) ([], []) l  in
 		struct_ty, struct_op, struct_code >@ cmp_exp_code >@ store_exp_code
   | Ast.Proj (e, id) ->
