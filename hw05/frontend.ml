@@ -488,14 +488,15 @@ and cmp_stmt (tc : TypeCtxt.t) (c:Ctxt.t) (rt:Ll.ty) (stmt:Ast.stmt node) : Ctxt
          merge label after either block
   *)
   | Ast.Cast (typ, id, exp, notnull, null) ->
+    let lnn, ln, lm, cmp_id = gensym "notnull", gensym "null", gensym "merge", gensym "cmp_id" in
     let exp_ty, exp_op, exp_code = cmp_exp tc c exp in
     let notnull_ctxt = Ctxt.add c id (exp_ty, exp_op) in
     let notnull_code = cmp_block tc notnull_ctxt rt notnull in
     let null_code = cmp_block tc c rt null in
-    let lnn, ln, lm = gensym "notnull", gensym "null", gensym "merge" in
-    c, exp_code 
-        >:: T(Cbr (exp_op, lnn, ln))
-        >:: L lnn >@ notnull_code >:: T(Br lm) 
+    c, exp_code
+        >:: I (cmp_id, Icmp (Ne, exp_ty, exp_op, Null))
+        >:: T (Cbr (Id cmp_id, lnn, ln))
+        >:: L lnn >:: E(id, Alloca exp_ty) >@ notnull_code >:: T(Br lm) 
         >:: L ln >@ null_code >:: T(Br lm) 
         >:: L lm
   | Ast.While (guard, body) ->
