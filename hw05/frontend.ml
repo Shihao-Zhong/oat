@@ -288,7 +288,7 @@ let rec cmp_exp (tc : TypeCtxt.t) (c:Ctxt.t) (exp:Ast.exp node) : Ll.ty * Ll.ope
     let arr_ty, arr_op, arr_code = cmp_exp tc c e in
     let arr_sub_ty = match arr_ty with
       | Ptr (Struct [_; Array (_,t)]) -> t
-      | _ -> failwith "length: nonarray passed to length operator" in
+      | _ -> failwith  (pp "length: nonarray passed to length operator %s" @@  string_of_ty arr_ty)in
     let ptr_id, ans_id = gensym "ptr", "length" in
     I64, (Id ans_id),
     arr_code >@ lift
@@ -490,13 +490,13 @@ and cmp_stmt (tc : TypeCtxt.t) (c:Ctxt.t) (rt:Ll.ty) (stmt:Ast.stmt node) : Ctxt
   | Ast.Cast (typ, id, exp, notnull, null) ->
     let lnn, ln, lm, cmp_id = gensym "notnull", gensym "null", gensym "merge", gensym "cmp_id" in
     let exp_ty, exp_op, exp_code = cmp_exp tc c exp in
-    let notnull_ctxt = Ctxt.add c id (exp_ty, exp_op) in
+    let notnull_ctxt = Ctxt.add c id (Ptr exp_ty, Id id) in
     let notnull_code = cmp_block tc notnull_ctxt rt notnull in
     let null_code = cmp_block tc c rt null in
     c, exp_code
         >:: I (cmp_id, Icmp (Ne, exp_ty, exp_op, Null))
         >:: T (Cbr (Id cmp_id, lnn, ln))
-        >:: L lnn >:: E(id, Alloca exp_ty) >@ notnull_code >:: T(Br lm) 
+        >:: L lnn >:: E(id, Alloca exp_ty) >:: I("", Store (exp_ty, exp_op, Id id)) >@ notnull_code >:: T(Br lm) 
         >:: L ln >@ null_code >:: T(Br lm) 
         >:: L lm
   | Ast.While (guard, body) ->
